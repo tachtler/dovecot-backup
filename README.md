@@ -16,7 +16,7 @@ A more confortable and detailed description is available under following link:
 
 http://www.dokuwiki.tachtler.net/doku.php?id=tachtler:dovecot_backup_-_skript
 
-(Only avaliable in German language)
+(Sorry, by now, only avaliable in **German language**)
 
 Short description of **all** the parameter to set, inside the top part of the script:
 
