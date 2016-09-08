@@ -1,5 +1,5 @@
 # dovecot-backup
-Dovecot backup shell script for saving emails for every mailbox to its own tar.gz file.
+Dovecot backup shell script for saving emails for every mailbox from dovecot to its own tar.gz file.
 
 This simple bash/shell script saves all emails
 - from all mailboxes/user accounts
@@ -9,7 +9,12 @@ This simple bash/shell script saves all emails
 - with automatic deletion of old backup-files
 - and with logging in a growing up log file under /var/log
 
-A more confortable and detaild description is available under following link:
+On **successful execution** only a LOG file will be written.
+
+On **error while execution**, a LOG file and a error message will be send by e-mail.
+
+
+A more confortable and detailed description is available under following link:
 
 http://www.dokuwiki.tachtler.net/doku.php?id=tachtler:dovecot_backup_-_skript
 
