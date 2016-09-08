@@ -8,3 +8,9 @@ This simple bash/shell script saves all emails
 - with configurable parameter
 - with automatic deletion of old backup-files
 - and with logging in a growing up log file under /var/log
+
+A more confortable and detaild description is available under following link:
+
+http://www.dokuwiki.tachtler.net/doku.php?id=tachtler:dovecot_backup_-_skript
+
+(Only avaliable in German language)
