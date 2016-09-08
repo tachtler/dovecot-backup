@@ -4,7 +4,7 @@
 # Script-Name : dovecot_backup.sh                                            #
 # Description : Script to backup the mailboxes from dovecot.                 #
 #               On successful execution only a LOG file will be written.     #
-#               On error while execution, a LOG file and a error message     #
+#               On error, while execution, the LOG file and a error message  #
 #               will be send by e-mail.                                      #
 #                                                                            #
 # Last update : 29.04.2014                                                   #
@@ -62,7 +62,7 @@ MAIL_RECIPIENT='you@example.com'
 MAIL_STATUS='N'
  
 ##############################################################################
-# >>> Normaly there is no need to change anything below this comment line. ! #
+# >>> Normally there is no need to change anything below this comment line.! #
 ##############################################################################
  
 # Variables.
