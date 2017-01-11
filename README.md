@@ -28,7 +28,7 @@ Full description of **all** the parameter to set **to get the script to work**, 
 SCRIPT_NAME='dovecot_backup'
  
 # CUSTOM - Backup-Files.
-DIR_BACKUP='/data/backup'
+DIR_BACKUP='/srv/backup'
 FILE_BACKUP=dovecot_backup_`date '+%Y%m%d_%H%M%S'`.tar.gz
 FILE_DELETE='*.tar.gz'
 DAYS_DELETE=7
