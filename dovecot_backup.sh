@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 11.01.2017                                                   #
-# Version     : 1.01                                                         #
+# Last update : 29.03.2017                                                   #
+# Version     : 1.02                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -32,6 +32,14 @@
 # Description : Bugfix: Delete all temporary domain directories not only the #
 #               last one. Thanks to Guenther J. Niederwimmer.                #
 # -------------------------------------------------------------------------- #
+# Version     : 1.02                                                         #
+# Description : GitHub: Issue #1                                             #
+#               The name of the variable to delete the number of old backup  #
+#               files $DAYS_DELETE was renamed to $BACKUPFILES_DELETE. This  #
+#               was done for better understanding, because if the script was #
+#               running more than once a day, this could be misunderstood.   #
+#               Thanks to Diane Trout.                                       #
+# -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
 # -------------------------------------------------------------------------- #
@@ -48,7 +56,7 @@ SCRIPT_NAME='dovecot_backup'
 DIR_BACKUP='/srv/backup'
 FILE_BACKUP=dovecot_backup_`date '+%Y%m%d_%H%M%S'`.tar.gz
 FILE_DELETE='*.tar.gz'
-DAYS_DELETE=14
+BACKUPFILES_DELETE=14
 
 # CUSTOM - dovecot Folders.
 MAILDIR_TYPE='maildir'
@@ -281,7 +289,7 @@ for users in `doveadm user "*"`; do
         $TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
 
         log "Delete archive files for user: $users ..."
-        (ls $users-$FILE_DELETE -t|head -n $DAYS_DELETE;ls $users-$FILE_DELETE )|sort|uniq -u|xargs rm
+        (ls $users-$FILE_DELETE -t|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE )|sort|uniq -u|xargs rm
         if [ "$?" != "0" ]; then
                 log "Delete old archive files $DIR_BACKUP .....................[FAILED]"
         else
