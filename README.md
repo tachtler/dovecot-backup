@@ -31,7 +31,7 @@ SCRIPT_NAME='dovecot_backup'
 DIR_BACKUP='/srv/backup'
 FILE_BACKUP=dovecot_backup_`date '+%Y%m%d_%H%M%S'`.tar.gz
 FILE_DELETE='*.tar.gz'
-DAYS_DELETE=7
+BACKUPFILES_DELETE=7
  
 # CUSTOM - dovecot Folders.
 MAILDIR_TYPE='maildir'
