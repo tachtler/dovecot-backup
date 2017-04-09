@@ -40,6 +40,15 @@
 #               running more than once a day, this could be misunderstood.   #
 #               Thanks to Diane Trout.                                       #
 # -------------------------------------------------------------------------- #
+# Version     : 1.03                                                         #
+# Description : Quota calculation double the calculated size of a mailbox,   #
+#               when dict was used. See also following mailing-list entry:   #   
+#                                                                            #
+#               https://www.dovecot.org/list/dovecot/2012-February/          #
+#               063585.html                                                  #
+#                                                                            #
+#               Thanks to André Peters.                                      #
+# -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
 # -------------------------------------------------------------------------- #
@@ -281,7 +290,7 @@ for users in `doveadm user "*"`; do
         USERPART="$DOMAINPART/$LOCALPART"
 
         log "Extract mailbox data for user: $users ..."
-        $DSYNC_COMMAND -f -u $users backup $MAILDIR_TYPE:$LOCATION
+        $DSYNC_COMMAND -o plugin/quota= -f -u $users backup $MAILDIR_TYPE:$LOCATION
 
         cd $DIR_BACKUP
 
