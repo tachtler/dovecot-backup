@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 08.04.2017                                                   #
-# Version     : 1.03                                                         #
+# Last update : 06.12.2017                                                   #
+# Version     : 1.04                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -42,12 +42,17 @@
 # -------------------------------------------------------------------------- #
 # Version     : 1.03                                                         #
 # Description : Quota calculation double the calculated size of a mailbox,   #
-#               when dict was used. See also following mailing-list entry:   #   
+#               when dict was used. See also following mailing-list entry:   #
 #                                                                            #
 #               https://www.dovecot.org/list/dovecot/2012-February/          #
 #               063585.html                                                  #
 #                                                                            #
 #               Thanks to André Peters.                                      #
+# -------------------------------------------------------------------------- #
+# Version     : 1.04                                                         #
+# Description : Typo: Correction of the return code query of                 #
+#               "# Delete LOCK file." in a pure string comparison.           #
+#               Thanks to Oli Sennhauser.                                    #
 # -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
@@ -318,7 +323,7 @@ for users in `doveadm user "*"`; do
 done
 
 # Delete LOCK file.
-if [ "$?" != 0 ]; then
+if [ "$?" != "0" ]; then
         retval $?
         log ""
         $RM_COMMAND -f $FILE_LOCK
