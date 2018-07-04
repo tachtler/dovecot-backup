@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 06.12.2017                                                   #
-# Version     : 1.04                                                         #
+# Last update : 04.07.2018                                                   #
+# Version     : 1.05                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -21,7 +21,7 @@
 #  | (at your option) any later version.                                  |  #
 #  +----------------------------------------------------------------------+  #
 #                                                                            #
-# Copyright (c) 2017 by Klaus Tachtler.                                      #
+# Copyright (c) 2018 by Klaus Tachtler.                                      #
 #                                                                            #
 ##############################################################################
 
@@ -54,6 +54,12 @@
 #               "# Delete LOCK file." in a pure string comparison.           #
 #               Thanks to Oli Sennhauser.                                    #
 # -------------------------------------------------------------------------- #
+# Version     : 1.05                                                         #
+# Description : GitHub: Issue #4                                             #
+#               Add error handling for dsync command.                        #
+#               Add runtime statistics.                                      #
+#               Thanks to HenrikWMG.                                         #
+# -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
 # -------------------------------------------------------------------------- #
@@ -70,7 +76,7 @@ SCRIPT_NAME='dovecot_backup'
 DIR_BACKUP='/srv/backup'
 FILE_BACKUP=dovecot_backup_`date '+%Y%m%d_%H%M%S'`.tar.gz
 FILE_DELETE='*.tar.gz'
-BACKUPFILES_DELETE=14
+BACKUPFILES_DELETE=3
 
 # CUSTOM - dovecot Folders.
 MAILDIR_TYPE='maildir'
@@ -105,6 +111,9 @@ FILE_MBOXLIST='/tmp/'$SCRIPT_NAME'.mboxlist'
 VAR_HOSTNAME=`uname -n`
 VAR_SENDER='root@'$VAR_HOSTNAME
 VAR_EMAILDATE=`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%Z)'`
+declare -a VAR_FAILED_USER=()
+VAR_COUNT_USER=0
+VAR_COUNT_FAIL=0
 
 # Functions.
 function log() {
@@ -289,6 +298,7 @@ chmod 700 $DIR_BACKUP
 for users in `doveadm user "*"`; do
         log "Start backup process for user: $users ..."
 
+        ((VAR_COUNT_USER++))
         DOMAINPART=${users#*@}
         LOCALPART=${users%%@*}
         LOCATION="$DIR_BACKUP/$DOMAINPART/$LOCALPART/$MAILDIR_NAME"
@@ -297,25 +307,43 @@ for users in `doveadm user "*"`; do
         log "Extract mailbox data for user: $users ..."
         $DSYNC_COMMAND -o plugin/quota= -f -u $users backup $MAILDIR_TYPE:$LOCATION
 
-        cd $DIR_BACKUP
-
-        log "Packaging to archive for user: $users ..."
-        $TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
-
-        log "Delete archive files for user: $users ..."
-        (ls $users-$FILE_DELETE -t|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE )|sort|uniq -u|xargs rm
+        # Check the status of dsync and continue the script depending on the result.
         if [ "$?" != "0" ]; then
-                log "Delete old archive files $DIR_BACKUP .....................[FAILED]"
-        else
-                log "Delete old archive files $DIR_BACKUP .....................[  OK  ]"
-        fi
+                case "$?" in
+                1)      log "Synchronization failed > user: $users !!!"
+                        ;;
+                2)      log "Synchronization was done without errors, but some changes couldn't be done, so the mailboxes aren't perfectly synchronized for user: $users !!!"
+                        ;;
+                esac
+                if [ "$?" -gt "3" ]; then
+                        log "Synchronization failed > user: $users !!!"
+                fi
 
-        log "Delete mailbox files for user: $users ..."
-        $RM_COMMAND "$DIR_BACKUP/$DOMAINPART" -rf
-        if [ "$?" != "0" ]; then
-                log "Delete mailbox files at: $DIR_BACKUP .....................[FAILED]"
+                ((VAR_COUNT_FAIL++))
+                VAR_FAILED_USER+=($users);
         else
-                log "Delete mailbox files at: $DIR_BACKUP .....................[  OK  ]"
+                log "Synchronization done for user: $users ..."
+
+                cd $DIR_BACKUP
+
+                log "Packaging to archive for user: $users ..."
+                $TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
+
+                log "Delete archive files for user: $users ..."
+                (ls $users-$FILE_DELETE -t|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE )|sort|uniq -u|xargs rm
+                if [ "$?" != "0" ]; then
+                        log "Delete old archive files $DIR_BACKUP .....................[FAILED]"
+                else
+                        log "Delete old archive files $DIR_BACKUP .....................[  OK  ]"
+                fi
+
+                log "Delete mailbox files for user: $users ..."
+                $RM_COMMAND "$DIR_BACKUP/$DOMAINPART" -rf
+                if [ "$?" != "0" ]; then
+                        log "Delete mailbox files at: $DIR_BACKUP .....................[FAILED]"
+                else
+                        log "Delete mailbox files at: $DIR_BACKUP .....................[  OK  ]"
+                fi
         fi
 
         log "Ended backup process for user: $users ..."
@@ -338,17 +366,38 @@ else
         log ""
 fi
 
-# Finish syncing.
+# Finish syncing with runntime statistics.
+log "+-----------------------------------------------------------------+"
+log "| Runntime statistics............................................ |"
+log "+-----------------------------------------------------------------+"
+log ""
+log "- Number of determined users: $VAR_COUNT_USER"
+log "- ...Summary of failed users: $VAR_COUNT_FAIL"
+
+if [ "$VAR_COUNT_FAIL" -gt "0" ]; then
+        log "- ...Mailbox of failed users: "
+        for i in "${VAR_FAILED_USER[@]}"
+        do
+                log "- ... $i"
+        done
+fi
+
+log ""
 log "+-----------------------------------------------------------------+"
 log "| Finish......................................................... |"
 log "+-----------------------------------------------------------------+"
 log ""
 
-# Status e-mail.
-if [ $MAIL_STATUS = 'Y' ]; then
-        sendmail STATUS
+# If errors occured on user backups, exit with return code 1 instead of 0.
+if [ "$VAR_COUNT_FAIL" -gt "0" ]; then
+        sendmail ERROR
+        movelog
+        exit 1
+else
+        # Status e-mail.
+        if [ $MAIL_STATUS = 'Y' ]; then
+                sendmail STATUS
+                movelog
+        fi
+        exit 0
 fi
-# Move temporary log to permanent log
-movelog
-
-exit 0
