@@ -397,7 +397,7 @@ else
         # Status e-mail.
         if [ $MAIL_STATUS = 'Y' ]; then
                 sendmail STATUS
-                movelog
         fi
+        movelog        
         exit 0
 fi
