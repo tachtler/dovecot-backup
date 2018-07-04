@@ -8,6 +8,7 @@ This simple bash/shell script save all e-mail
 - with configurable parameter
 - with automatic deletion of old backup-files
 - and with logging into a growing up log file under ``/var/log``
+- with **statistic summary** at the end of the script execution
 - on **successful execution** only a LOG file will be written.
 - on **error while execution**, a LOG file will be written and an error message will be send by e-mail.
 
