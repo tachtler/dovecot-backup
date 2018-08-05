@@ -329,6 +329,7 @@ for users in `doveadm user "*"`; do
                 log "Packaging to archive for user: $users ..."
                 $TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
 		chown $MAILDIR_USER:$MAILDIR_GROUP $users-$FILE_BACKUP
+                chmod 600 $users-$FILE_BACKUP
 
                 log "Delete archive files for user: $users ..."
                 (ls $users-$FILE_DELETE -t|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE )|sort|uniq -u|xargs -r rm
