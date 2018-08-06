@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 04.07.2018                                                   #
-# Version     : 1.05                                                         #
+# Last update : 06.08.2018                                                   #
+# Version     : 1.06                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -60,6 +60,13 @@
 #               Add runtime statistics.                                      #
 #               Thanks to HenrikWMG.                                         #
 # -------------------------------------------------------------------------- #
+# Version     : 1.06                                                         #
+# Description : Avoid an error when trying to delete backup files, if the    #
+#               $BACKUPFILES_DELETE count is NOT reached.                    #
+#               Change file owner, after backup was created.                 #
+#               Change file permissions to 600, after backup was created.    #
+#               Thanks to Seep1559                                           #
+# -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
 # -------------------------------------------------------------------------- #
@@ -103,6 +110,8 @@ PROG_SENDMAIL=`command -v sendmail`
 CAT_COMMAND=`command -v cat`
 DATE_COMMAND=`command -v date`
 MKDIR_COMMAND=`command -v mkdir`
+CHOWN_COMMAND=`command -v chown`
+CHMOD_COMMAND=`command -v chmod`
 FILE_LOCK='/tmp/'$SCRIPT_NAME'.lock'
 FILE_LOG='/var/log/'$SCRIPT_NAME'.log'
 FILE_LAST_LOG='/tmp/'$SCRIPT_NAME'.log'
@@ -133,7 +142,7 @@ fi
 
 function movelog() {
         $CAT_COMMAND $FILE_LAST_LOG >> $FILE_LOG
-        $RM_COMMAND -f $FILE_LAST_LOG   
+        $RM_COMMAND -f $FILE_LAST_LOG
         $RM_COMMAND -f $FILE_LOCK
 }
 
@@ -250,11 +259,31 @@ else
 fi
 
 # Check if command (file) NOT exist OR IS empty.
+if [ ! -s "$CHOWN_COMMAND" ]; then
+        log "Check if command '$CHOWN_COMMAND' was found....................[FAILED]"
+        sendmail ERROR
+        movelog
+        exit 18
+else
+        log "Check if command '$CHOWN_COMMAND' was found....................[  OK  ]"
+fi
+
+# Check if command (file) NOT exist OR IS empty.
+if [ ! -s "$CHMOD_COMMAND" ]; then
+        log "Check if command '$CHMOD_COMMAND' was found....................[FAILED]"
+        sendmail ERROR
+        movelog
+        exit 19
+else
+        log "Check if command '$CHMOD_COMMAND' was found....................[  OK  ]"
+fi
+
+# Check if command (file) NOT exist OR IS empty.
 if [ ! -s "$PROG_SENDMAIL" ]; then
         log "Check if command '$PROG_SENDMAIL' was found................[FAILED]"
         sendmail ERROR
         movelog
-        exit 18
+        exit 20
 else
         log "Check if command '$PROG_SENDMAIL' was found................[  OK  ]"
 fi
@@ -271,7 +300,7 @@ else
         log ""
         sendmail ERROR
         movelog
-        exit 20
+        exit 30
 fi
 
 # Check if DIR_BACKUP Directory NOT exists.
@@ -289,10 +318,6 @@ log "+-----------------------------------------------------------------+"
 log "| Run backup $SCRIPT_NAME ..................................... |"
 log "+-----------------------------------------------------------------+"
 log ""
-
-# Set right permissions to backup directory.
-chown -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_BACKUP
-chmod 700 $DIR_BACKUP
 
 # Start real backup process for all users.
 for users in `doveadm user "*"`; do
@@ -330,7 +355,7 @@ for users in `doveadm user "*"`; do
                 $TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
 
                 log "Delete archive files for user: $users ..."
-                (ls $users-$FILE_DELETE -t|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE )|sort|uniq -u|xargs rm
+                (ls $users-$FILE_DELETE -t|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE )|sort|uniq -u|xargs -r rm
                 if [ "$?" != "0" ]; then
                         log "Delete old archive files $DIR_BACKUP .....................[FAILED]"
                 else
@@ -349,6 +374,11 @@ for users in `doveadm user "*"`; do
         log "Ended backup process for user: $users ..."
         log ""
 done
+
+# Set owner and rights permissions to backup directory and backup files.
+$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_BACKUP
+$CHMOD_COMMAND 700 $DIR_BACKUP
+$CHMOD_COMMAND -R 600 $DIR_BACKUP/*
 
 # Delete LOCK file.
 if [ "$?" != "0" ]; then
@@ -398,6 +428,6 @@ else
         if [ $MAIL_STATUS = 'Y' ]; then
                 sendmail STATUS
         fi
-        movelog        
+        movelog
         exit 0
 fi
