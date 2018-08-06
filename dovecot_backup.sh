@@ -65,7 +65,7 @@
 #               $BACKUPFILES_DELETE count is NOT reached.                    #
 #               Change file owner, after backup was created.                 #
 #               Change file permissions to 600, after backup was created.    #
-#               Thanks to Seep1559                                           #
+#               Thanks to Seep1959                                           #
 # -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
