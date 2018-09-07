@@ -46,3 +46,16 @@ MAIL_RECIPIENT='you@example.com'
 # CUSTOM - Status-Mail [Y|N].
 MAIL_STATUS='N'
 ```
+
+##### **Note**: The script doesn't work with Multi-dbox (mdbox). BUT following changes can solve that issue:
+
+Please change/replace the line
+```
+$DSYNC_COMMAND -o plugin/quota= -f -u $users backup $MAILDIR_TYPE:$LOCATION
+```
+with
+```
+doveadm backup -n inbox -f -u $users $MAILDIR_TYPE:$LOCATION:LAYOUT=fs
+```
+
+```Issue #6``` - Thanks to SvenSFS
