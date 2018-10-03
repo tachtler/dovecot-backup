@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 06.08.2018                                                   #
-# Version     : 1.06                                                         #
+# Last update : 03.10.2018                                                   #
+# Version     : 1.07                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -65,7 +65,13 @@
 #               $BACKUPFILES_DELETE count is NOT reached.                    #
 #               Change file owner, after backup was created.                 #
 #               Change file permissions to 600, after backup was created.    #
-#               Thanks to Seep1959.                                           #
+#               Thanks to Seep1959.                                          #
+# -------------------------------------------------------------------------- #
+# Version     : 1.07                                                         #
+# Description : Compatibility: Change the parameter order for the step       #
+#               "Delete archive files for user" for better compatibility     #
+#               with FreeBSD.                                                #
+#               Thanks to Alexander Preyer.                                  #
 # -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
@@ -355,7 +361,7 @@ for users in `doveadm user "*"`; do
                 $TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
 
                 log "Delete archive files for user: $users ..."
-                (ls $users-$FILE_DELETE -t|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE )|sort|uniq -u|xargs -r rm
+                (ls -t $users-$FILE_DELETE|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE)|sort|uniq -u|xargs -r rm
                 if [ "$?" != "0" ]; then
                         log "Delete old archive files $DIR_BACKUP .....................[FAILED]"
                 else
