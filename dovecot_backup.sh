@@ -87,6 +87,7 @@ SCRIPT_NAME='dovecot_backup'
 
 # CUSTOM - Backup-Files.
 DIR_BACKUP='/srv/backup'
+DIR_TEMP='/run/devecot-backup'
 FILE_BACKUP=dovecot_backup_`date '+%Y%m%d_%H%M%S'`.tar.gz
 FILE_DELETE='*.tar.gz'
 BACKUPFILES_DELETE=14
@@ -112,17 +113,18 @@ DSYNC_COMMAND=`command -v dsync`
 TAR_COMMAND=`command -v tar`
 TOUCH_COMMAND=`command -v touch`
 RM_COMMAND=`command -v rm`
+MV_COMMAND=`command -v mv`
 PROG_SENDMAIL=`command -v sendmail`
 CAT_COMMAND=`command -v cat`
 DATE_COMMAND=`command -v date`
 MKDIR_COMMAND=`command -v mkdir`
 CHOWN_COMMAND=`command -v chown`
 CHMOD_COMMAND=`command -v chmod`
-FILE_LOCK='/tmp/'$SCRIPT_NAME'.lock'
+FILE_LOCK='/run/'$SCRIPT_NAME'.lock'
 FILE_LOG='/var/log/'$SCRIPT_NAME'.log'
-FILE_LAST_LOG='/tmp/'$SCRIPT_NAME'.log'
-FILE_MAIL='/tmp/'$SCRIPT_NAME'.mail'
-FILE_MBOXLIST='/tmp/'$SCRIPT_NAME'.mboxlist'
+FILE_LAST_LOG='/run/'$SCRIPT_NAME'.log'
+FILE_MAIL='/run/'$SCRIPT_NAME'.mail'
+FILE_MBOXLIST='/run/'$SCRIPT_NAME'.mboxlist'
 VAR_HOSTNAME=`uname -n`
 VAR_SENDER='root@'$VAR_HOSTNAME
 VAR_EMAILDATE=`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%Z)'`
@@ -318,6 +320,14 @@ else
         log "Check if DIR_BACKUP exists.................................[  OK  ]"
 fi
 
+if [ ! -d "$DIR_TEMP" ]; then
+        log "Check if DIR_TEMP exists...................................[FAILED]"
+        $MKDIR_COMMAND -p $DIR_TEMP
+        log "DIR_TEMP was now created...................................[  OK  ]"
+else
+        log "Check if DIR_TEMP exists...................................[  OK  ]"
+fi
+
 # Start backup.
 log ""
 log "+-----------------------------------------------------------------+"
@@ -332,7 +342,7 @@ for users in `doveadm user "*"`; do
         ((VAR_COUNT_USER++))
         DOMAINPART=${users#*@}
         LOCALPART=${users%%@*}
-        LOCATION="$DIR_BACKUP/$DOMAINPART/$LOCALPART/$MAILDIR_NAME"
+        LOCATION="$DIR_TEMP/$DOMAINPART/$LOCALPART/$MAILDIR_NAME"
         USERPART="$DOMAINPART/$LOCALPART"
 
         log "Extract mailbox data for user: $users ..."
@@ -355,10 +365,12 @@ for users in `doveadm user "*"`; do
         else
                 log "Synchronization done for user: $users ..."
 
-                cd $DIR_BACKUP
+                cd $DIR_TEMP
 
                 log "Packaging to archive for user: $users ..."
                 $TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
+
+                cd $DIR_BACKUP
 
                 log "Delete archive files for user: $users ..."
                 (ls -t $users-$FILE_DELETE|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE)|sort|uniq -u|xargs -r rm
@@ -374,6 +386,14 @@ for users in `doveadm user "*"`; do
                         log "Delete mailbox files at: $DIR_BACKUP .....................[FAILED]"
                 else
                         log "Delete mailbox files at: $DIR_BACKUP .....................[  OK  ]"
+                fi
+
+                log "Moving archive file for user: $users ..."
+                $MV_COMMAND -f "$DIR_TEMP/$users-$FILE_BACKUP" "$DIR_BACKUP/"
+                if [ "$?" != "0" ]; then
+                        log "Moving archive file to: $DIR_BACKUP .....................[FAILED]"
+                else
+                        log "Moving archive file to: $DIR_BACKUP .....................[  OK  ]"
                 fi
         fi
 
