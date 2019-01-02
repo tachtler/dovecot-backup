@@ -354,16 +354,27 @@ else
         log "Check if DIR_BACKUP exists.................................[  OK  ]"
 fi
 
-if [[ "$USER_LIST" != "" && -f $USER_LIST ]]; then
-        log "Check if user list exists .....................................[  OK  ]"
+# Check if user list specified, file exists, and file readable.
+#  - if user list empty, ignore: all dovecot mailboxes are backed up
+#  - if specified but does not exists or is not readable then exit
+if [[ "$USER_LIST" != "" ]]; then
+        if [[ -f $USER_LIST && -r $USER_LIST ]]; then
+                log "Check for valid user list.....................................[  OK  ]"
+        else
+                log "Check for valid user list.....................................[FAILED]"
+                log ""
+                if [[ -f $USER_LIST ]]; then
+                        log "ERROR: The user list: '$USER_LIST' read access denied!"
+                else
+                        log "ERROR: The user list: '$USER_LIST' cannot be located!"
+                fi
+                log ""
+                sendmail ERROR
+                movelog
+                exit 31
+        fi
 else
-        log "Check if user list exists .....................................[FAILED]"
-        log ""
-        log "ERROR: The user list: '$USER_LIST' cannot be located!"
-        log ""
-        sendmail ERROR
-        movelog
-        exit 31
+        log "User list not specified"
 fi
 
 # Start backup.
