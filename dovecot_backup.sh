@@ -73,38 +73,22 @@
 #               with FreeBSD.                                                #
 #               Thanks to Alexander Preyer.                                  #
 # -------------------------------------------------------------------------- #
-# Version     : x.xx                                                         #
-# Description : <Description>                                                #
+# Version     : 1.08                                                         #
+# Description : GitHub Issue #9                                              #
+#               Add ability to only backup specific mailboxes.               #
+#               Add ability for custom backup configurations.                #
 # -------------------------------------------------------------------------- #
 ##############################################################################
 
 ##############################################################################
-# >>> Please edit following lines for personal settings and custom usages. ! #
+# >>> Load personal settings and custom usages.                            ! #
+##############################################################################
+. $1
 ##############################################################################
 
-# CUSTOM - Script-Name.
-SCRIPT_NAME='dovecot_backup'
-
-# CUSTOM - Backup-Files.
-DIR_BACKUP='/srv/backup'
-FILE_BACKUP=dovecot_backup_`date '+%Y%m%d_%H%M%S'`.tar.gz
-FILE_DELETE='*.tar.gz'
-BACKUPFILES_DELETE=14
-
-# CUSTOM - dovecot Folders.
-MAILDIR_TYPE='maildir'
-MAILDIR_NAME='Maildir'
-MAILDIR_USER='vmail'
-MAILDIR_GROUP='vmail'
-
-# CUSTOM - Mail-Recipient.
-MAIL_RECIPIENT='you@example.com'
-
-# CUSTOM - Status-Mail [Y|N].
-MAIL_STATUS='N'
 
 ##############################################################################
-# >>> Normaly there is no need to change anything below this comment line. ! #
+# >>> Normally there is no need to change anything below this comment line.! #
 ##############################################################################
 
 # Variables.
@@ -178,10 +162,60 @@ $RM_COMMAND -f $FILE_MAIL
 
 }
 
+function backupuser() {
+    log "Start backup process for user: $users ..."
+    ((VAR_COUNT_USER++))
+    DOMAINPART=${users#*@}
+    LOCALPART=${users%%@*}
+    LOCATION="$DIR_BACKUP/$DOMAINPART/$LOCALPART/$MAILDIR_NAME"
+    USERPART="$DOMAINPART/$LOCALPART"
+
+    log "Extract mailbox data for user: $users ..."
+    $DSYNC_COMMAND -o plugin/quota= -f -u $users backup $MAILDIR_TYPE:$LOCATION
+    # Check the status of dsync and continue the script depending on the result.
+    if [ "$?" != "0" ]; then
+            case "$?" in
+            1)      log "Synchronization failed > user: $users !!!"
+                    ;;
+            2)      log "Synchronization was done without errors, but some changes couldn't be done, so the mailboxes aren't perfectly synchronized for user: $users !!!"
+                    ;;
+            esac
+            if [ "$?" -gt "3" ]; then
+                    log "Synchronization failed > user: $users !!!"
+            fi
+            ((VAR_COUNT_FAIL++))
+            VAR_FAILED_USER+=($users);
+    else
+            log "Synchronization done for user: $users ..."
+            cd $DIR_BACKUP
+
+            log "Packaging to archive for user: $users ..."
+            $TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
+            log "Delete archive files for user: $users ..."
+            (ls -t $users-$FILE_DELETE|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE)|sort|uniq -u|xargs -r rm
+            if [ "$?" != "0" ]; then
+                    log "Delete old archive files $DIR_BACKUP .....................[FAILED]"
+            else
+                    log "Delete old archive files $DIR_BACKUP .....................[  OK  ]"
+            fi
+            log "Delete mailbox files for user: $users ..."
+            $RM_COMMAND "$DIR_BACKUP/$DOMAINPART" -rf
+            if [ "$?" != "0" ]; then
+                    log "Delete mailbox files at: $DIR_BACKUP .....................[FAILED]"
+            else
+                    log "Delete mailbox files at: $DIR_BACKUP .....................[  OK  ]"
+            fi
+    fi
+
+    log "Ended backup process for user: $users ..."
+    log ""
+}
+
 # Main.
+START_DATETIME=`date --utc '+%Y-%m-%dT%H:%M:%SZ'`
 log ""
 log "+-----------------------------------------------------------------+"
-log "| Start backup the mailboxes of dovecot server................... |"
+log "| $START_DATETIME: Start backup the mailboxes............... |"
 log "+-----------------------------------------------------------------+"
 log ""
 log "Run script with following parameter:"
@@ -192,6 +226,8 @@ log "DIR_BACKUP....: $DIR_BACKUP"
 log ""
 log "MAIL_RECIPIENT: $MAIL_RECIPIENT"
 log "MAIL_STATUS...: $MAIL_STATUS"
+log ""
+log "USER_LIST.....: $USER_LIST"
 log ""
 
 # Check if command (file) NOT exist OR IS empty.
@@ -318,6 +354,18 @@ else
         log "Check if DIR_BACKUP exists.................................[  OK  ]"
 fi
 
+if [[ "$USER_LIST" != "" && -f $USER_LIST ]]; then
+        log "Check if user list exists .....................................[  OK  ]"
+else
+        log "Check if user list exists .....................................[FAILED]"
+        log ""
+        log "ERROR: The user list: '$USER_LIST' cannot be located!"
+        log ""
+        sendmail ERROR
+        movelog
+        exit 31
+fi
+
 # Start backup.
 log ""
 log "+-----------------------------------------------------------------+"
@@ -325,61 +373,19 @@ log "| Run backup $SCRIPT_NAME ..................................... |"
 log "+-----------------------------------------------------------------+"
 log ""
 
+
 # Start real backup process for all users.
-for users in `doveadm user "*"`; do
-        log "Start backup process for user: $users ..."
+# get list of users to backup - either explicit list (if exists), or all
+if [[ "$USER_LIST" != "" ]]; then
+    while IFS='' read -r users || [[ -n "$users" ]]; do
+        backupuser
+    done < "$USER_LIST"
+else
+    for users in `doveadm user "*"`; do
+        backupuser
+        done
+fi
 
-        ((VAR_COUNT_USER++))
-        DOMAINPART=${users#*@}
-        LOCALPART=${users%%@*}
-        LOCATION="$DIR_BACKUP/$DOMAINPART/$LOCALPART/$MAILDIR_NAME"
-        USERPART="$DOMAINPART/$LOCALPART"
-
-        log "Extract mailbox data for user: $users ..."
-        $DSYNC_COMMAND -o plugin/quota= -f -u $users backup $MAILDIR_TYPE:$LOCATION
-
-        # Check the status of dsync and continue the script depending on the result.
-        if [ "$?" != "0" ]; then
-                case "$?" in
-                1)      log "Synchronization failed > user: $users !!!"
-                        ;;
-                2)      log "Synchronization was done without errors, but some changes couldn't be done, so the mailboxes aren't perfectly synchronized for user: $users !!!"
-                        ;;
-                esac
-                if [ "$?" -gt "3" ]; then
-                        log "Synchronization failed > user: $users !!!"
-                fi
-
-                ((VAR_COUNT_FAIL++))
-                VAR_FAILED_USER+=($users);
-        else
-                log "Synchronization done for user: $users ..."
-
-                cd $DIR_BACKUP
-
-                log "Packaging to archive for user: $users ..."
-                $TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
-
-                log "Delete archive files for user: $users ..."
-                (ls -t $users-$FILE_DELETE|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE)|sort|uniq -u|xargs -r rm
-                if [ "$?" != "0" ]; then
-                        log "Delete old archive files $DIR_BACKUP .....................[FAILED]"
-                else
-                        log "Delete old archive files $DIR_BACKUP .....................[  OK  ]"
-                fi
-
-                log "Delete mailbox files for user: $users ..."
-                $RM_COMMAND "$DIR_BACKUP/$DOMAINPART" -rf
-                if [ "$?" != "0" ]; then
-                        log "Delete mailbox files at: $DIR_BACKUP .....................[FAILED]"
-                else
-                        log "Delete mailbox files at: $DIR_BACKUP .....................[  OK  ]"
-                fi
-        fi
-
-        log "Ended backup process for user: $users ..."
-        log ""
-done
 
 # Set owner and rights permissions to backup directory and backup files.
 $CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_BACKUP
@@ -418,13 +424,14 @@ if [ "$VAR_COUNT_FAIL" -gt "0" ]; then
         done
 fi
 
+END_DATETIME=`date --utc '+%Y-%m-%dT%H:%M:%SZ'`
 log ""
 log "+-----------------------------------------------------------------+"
-log "| Finish......................................................... |"
+log "| $END_DATETIME: Finish................................... |"
 log "+-----------------------------------------------------------------+"
 log ""
 
-# If errors occured on user backups, exit with return code 1 instead of 0.
+# If errors occurred on user backups, exit with return code 1 instead of 0.
 if [ "$VAR_COUNT_FAIL" -gt "0" ]; then
         sendmail ERROR
         movelog
