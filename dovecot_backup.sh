@@ -8,7 +8,7 @@
 #               will be send by e-mail.                                      #
 #                                                                            #
 # Last update : 30.01.2019                                                   #
-# Version     : 1.08                                                         #
+# Version     : 1.09                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -81,6 +81,11 @@
 #               Add the calculation of the script runtime.                   #
 #               Thanks to graue Ritter.                                      #
 # -------------------------------------------------------------------------- #
+# Version     : 1.09                                                         #
+# Description : Add a switch to enable or disable e-mail address check, when #
+#               FILE_USERLIST was set and used.                              #
+#               Thanks to kbridger.                                          #
+# -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
 # -------------------------------------------------------------------------- #
@@ -107,13 +112,17 @@ MAILDIR_GROUP='vmail'
 
 # CUSTOM - Path and file name of a file with e-mail addresses to backup, if
 #          SET. If NOT, the script will determine all mailboxes by default.
-# FILE_USERLIST='/path/and/file/name/of/user/list/with/one/email/per/line'
+# FILE_USERLIST='/path/and/file/name/of/user/list/with/one/user/per/line'
 # - OR -
 # FILE_USERLIST=''
 FILE_USERLIST=''
 
+# CUSTOM - Check when FILE_USERLIST was used, if the user per line was a
+#          valid e-mail address [Y|N].
+FILE_USERLIST_VALIDATE_EMAIL='N'
+
 # CUSTOM - Mail-Recipient.
-MAIL_RECIPIENT='you@example.com'
+MAIL_RECIPIENT='root@tachtler.net'
 
 # CUSTOM - Status-Mail [Y|N].
 MAIL_STATUS='N'
@@ -164,9 +173,9 @@ fi
 }
 
 function movelog() {
-        $CAT_COMMAND $FILE_LAST_LOG >> $FILE_LOG
-        $RM_COMMAND -f $FILE_LAST_LOG   
-        $RM_COMMAND -f $FILE_LOCK
+	$CAT_COMMAND $FILE_LAST_LOG >> $FILE_LOG
+	$RM_COMMAND -f $FILE_LAST_LOG	
+	$RM_COMMAND -f $FILE_LOCK
 }
 
 function sendmail() {
@@ -202,21 +211,22 @@ log "+-----------------------------------------------------------------+"
 log "| Start backup of the mailboxes [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%Z)'`] |"
 log "+-----------------------------------------------------------------+"
 log ""
-log "Run script with following parameter:"
+log "SCRIPT_NAME.................: $SCRIPT_NAME"
 log ""
-log "SCRIPT_NAME...: $SCRIPT_NAME"
+log "DIR_BACKUP..................: $DIR_BACKUP"
 log ""
-log "DIR_BACKUP....: $DIR_BACKUP"
+log "MAIL_RECIPIENT..............: $MAIL_RECIPIENT"
+log "MAIL_STATUS.................: $MAIL_STATUS"
 log ""
-log "MAIL_RECIPIENT: $MAIL_RECIPIENT"
-log "MAIL_STATUS...: $MAIL_STATUS"
+log "FILE_USERLIST...............: $FILE_USERLIST"
+log "FILE_USERLIST_VALIDATE_EMAIL: $FILE_USERLIST_VALIDATE_EMAIL"
 log ""
 
 # Check if command (file) NOT exist OR IS empty.
 if [ ! -s "$DSYNC_COMMAND" ]; then
         log "Check if command '$DSYNC_COMMAND' was found....................[FAILED]"
         sendmail ERROR
-        movelog
+	movelog
         exit 11
 else
         log "Check if command '$DSYNC_COMMAND' was found....................[  OK  ]"
@@ -226,7 +236,7 @@ fi
 if [ ! -s "$TAR_COMMAND" ]; then
         log "Check if command '$TAR_COMMAND' was found......................[FAILED]"
         sendmail ERROR
-        movelog
+	movelog
         exit 12
 else
         log "Check if command '$TAR_COMMAND' was found......................[  OK  ]"
@@ -236,7 +246,7 @@ fi
 if [ ! -s "$TOUCH_COMMAND" ]; then
         log "Check if command '$TOUCH_COMMAND' was found....................[FAILED]"
         sendmail ERROR
-        movelog
+	movelog
         exit 13
 else
         log "Check if command '$TOUCH_COMMAND' was found....................[  OK  ]"
@@ -246,7 +256,7 @@ fi
 if [ ! -s "$RM_COMMAND" ]; then
         log "Check if command '$RM_COMMAND' was found.......................[FAILED]"
         sendmail ERROR
-        movelog
+	movelog
         exit 14
 else
         log "Check if command '$RM_COMMAND' was found.......................[  OK  ]"
@@ -256,7 +266,7 @@ fi
 if [ ! -s "$CAT_COMMAND" ]; then
         log "Check if command '$CAT_COMMAND' was found......................[FAILED]"
         sendmail ERROR
-        movelog
+	movelog
         exit 15
 else
         log "Check if command '$CAT_COMMAND' was found......................[  OK  ]"
@@ -266,7 +276,7 @@ fi
 if [ ! -s "$DATE_COMMAND" ]; then
         log "Check if command '$DATE_COMMAND' was found.....................[FAILED]"
         sendmail ERROR
-        movelog
+	movelog
         exit 16
 else
         log "Check if command '$DATE_COMMAND' was found.....................[  OK  ]"
@@ -276,7 +286,7 @@ fi
 if [ ! -s "$MKDIR_COMMAND" ]; then
         log "Check if command '$MKDIR_COMMAND' was found....................[FAILED]"
         sendmail ERROR
-        movelog
+	movelog
         exit 17
 else
         log "Check if command '$MKDIR_COMMAND' was found....................[  OK  ]"
@@ -286,7 +296,7 @@ fi
 if [ ! -s "$CHOWN_COMMAND" ]; then
         log "Check if command '$CHOWN_COMMAND' was found....................[FAILED]"
         sendmail ERROR
-        movelog
+	movelog
         exit 18
 else
         log "Check if command '$CHOWN_COMMAND' was found....................[  OK  ]"
@@ -296,7 +306,7 @@ fi
 if [ ! -s "$CHMOD_COMMAND" ]; then
         log "Check if command '$CHMOD_COMMAND' was found....................[FAILED]"
         sendmail ERROR
-        movelog
+	movelog
         exit 19
 else
         log "Check if command '$CHMOD_COMMAND' was found....................[  OK  ]"
@@ -306,7 +316,7 @@ fi
 if [ ! -s "$GREP_COMMAND" ]; then
         log "Check if command '$GREP_COMMAND' was found.....................[FAILED]"
         sendmail ERROR
-        movelog
+	movelog
         exit 20
 else
         log "Check if command '$GREP_COMMAND' was found.....................[  OK  ]"
@@ -316,7 +326,7 @@ fi
 if [ ! -s "$PROG_SENDMAIL" ]; then
         log "Check if command '$PROG_SENDMAIL' was found................[FAILED]"
         sendmail ERROR
-        movelog
+	movelog
         exit 21
 else
         log "Check if command '$PROG_SENDMAIL' was found................[  OK  ]"
@@ -333,14 +343,14 @@ else
         log "ERROR: The script was already running, or LOCK file already exists!"
         log ""
         sendmail ERROR
-        movelog
+	movelog
         exit 30
 fi
 
 # Check if DIR_BACKUP Directory NOT exists.
 if [ ! -d "$DIR_BACKUP" ]; then
         log "Check if DIR_BACKUP exists.................................[FAILED]"
-        $MKDIR_COMMAND -p $DIR_BACKUP
+	$MKDIR_COMMAND -p $DIR_BACKUP
         log "DIR_BACKUP was now created.................................[  OK  ]"
 else
         log "Check if DIR_BACKUP exists.................................[  OK  ]"
@@ -352,56 +362,61 @@ if [ ! -n "$FILE_USERLIST"  ]; then
         log "Check if the variable FILE_USERLIST is set.................[  NO  ]"
         log "Mailboxes to backup will be determined by doveadm user \"*\"."
 
-        for users in `doveadm user "*"`; do
-                VAR_LISTED_USER+=($users);
-        done
+	for users in `doveadm user "*"`; do
+		VAR_LISTED_USER+=($users);
+	done
 else
         log "Check if the variable FILE_USERLIST is set.................[  OK  ]"
         log "Mailboxes to backup will read from file."
         log ""
         log "- File: [$FILE_USERLIST]"
 
-        # Check if file exists.
-        if [ -f "$FILE_USERLIST" ]; then
-                log "- Check if FILE_USERLIST exists............................[  OK  ]"
-        else
-                log "- Check if FILE_USERLIST exists............................[FAILED]"
-                log ""
-                sendmail ERROR
-                movelog
-                exit 40
-        fi
+	# Check if file exists.
+	if [ -f "$FILE_USERLIST" ]; then
+        	log "- Check if FILE_USERLIST exists............................[  OK  ]"
+	else
+        	log "- Check if FILE_USERLIST exists............................[FAILED]"
+        	log ""
+	        sendmail ERROR
+		movelog
+        	exit 40
+	fi
 
-        # Check if file is readable.
-        if [ -r "$FILE_USERLIST" ]; then
-                log "- Check if FILE_USERLIST is readable.......................[  OK  ]"
-        else
-                log "- Check if FILE_USERLIST is readable.......................[FAILED]"
-                log ""
-                sendmail ERROR
-                movelog
-                exit 41
-        fi
+	# Check if file is readable.
+	if [ -r "$FILE_USERLIST" ]; then
+        	log "- Check if FILE_USERLIST is readable.......................[  OK  ]"
+	else
+        	log "- Check if FILE_USERLIST is readable.......................[FAILED]"
+        	log ""
+	        sendmail ERROR
+		movelog
+        	exit 41
+	fi
 
-        # Read file into variable.
-        while IFS= read -r line
-        do
-                # Check if basic email address syntax is valid.
-                if echo "${line}" | $GREP_COMMAND '^[a-zA-Z0-9]*@[a-zA-Z0-9]*\.[a-zA-Z0-9]*$' >/dev/null; then
-                        VAR_LISTED_USER+=($line);
-                else
-                        log ""
-                        log "ERROR: The email address: $line is not valid!"
+	# Read file into variable.
+	while IFS= read -r line
+	do	
+		# Check for valid e-mail address.
+		if [ $FILE_USERLIST_VALIDATE_EMAIL = 'Y' ]; then
+			# Check if basic email address syntax is valid.
+			if echo "${line}" | $GREP_COMMAND '^[a-zA-Z0-9]*@[a-zA-Z0-9]*\.[a-zA-Z0-9]*$' >/dev/null; then
+				VAR_LISTED_USER+=($line);
+			else
+        			log ""
+		        	log "ERROR: The user: $line is NOT valid e-mail address!"
 
-                        ((VAR_COUNT_FAIL++))
-                        VAR_FAILED_USER+=($line);
-                fi
-        done <"$FILE_USERLIST"
-fi
+	                	((VAR_COUNT_FAIL++))
+	                	VAR_FAILED_USER+=($line);
+			fi
+		else
+			VAR_LISTED_USER+=($line);
+		fi
+	done <"$FILE_USERLIST"
 
-# Check if VAR_COUNT_FAIL is greater than zero. If YES set counter to VAR_COUNT_USER.
-if [ "$VAR_COUNT_FAIL" -ne "0" ]; then
-        VAR_COUNT_USER=$VAR_COUNT_FAIL
+	# Check if VAR_COUNT_FAIL is greater than zero. If YES, set VAR_COUNT_USER to VAR_COUNT_FAIL.
+	if [ "$VAR_COUNT_FAIL" -ne "0" ]; then
+		VAR_COUNT_USER=$VAR_COUNT_FAIL
+	fi
 fi
 
 # Start backup.
@@ -413,57 +428,57 @@ log ""
 
 # Start real backup process for all users.
 for users in "${VAR_LISTED_USER[@]}"; do
-        log "Start backup process for user: $users ..."
+	log "Start backup process for user: $users ..."
 
-        ((VAR_COUNT_USER++))
-        DOMAINPART=${users#*@}
-        LOCALPART=${users%%@*}
-        LOCATION="$DIR_BACKUP/$DOMAINPART/$LOCALPART/$MAILDIR_NAME"
-        USERPART="$DOMAINPART/$LOCALPART"
+	((VAR_COUNT_USER++))
+	DOMAINPART=${users#*@}
+	LOCALPART=${users%%@*}
+	LOCATION="$DIR_BACKUP/$DOMAINPART/$LOCALPART/$MAILDIR_NAME"
+	USERPART="$DOMAINPART/$LOCALPART"
 
-        log "Extract mailbox data for user: $users ..."
-        $DSYNC_COMMAND -o plugin/quota= -f -u $users backup $MAILDIR_TYPE:$LOCATION
+	log "Extract mailbox data for user: $users ..."
+	$DSYNC_COMMAND -o plugin/quota= -f -u $users backup $MAILDIR_TYPE:$LOCATION
 
-        # Check the status of dsync and continue the script depending on the result.
-        if [ "$?" != "0" ]; then
-                case "$?" in
-                1)      log "Synchronization failed > user: $users !!!"
-                        ;;
-                2)      log "Synchronization was done without errors, but some changes couldn't be done, so the mailboxes aren't perfectly synchronized for user: $users !!!"
-                        ;;
-                esac
-                if [ "$?" -gt "3" ]; then
-                        log "Synchronization failed > user: $users !!!"
-                fi
+	# Check the status of dsync and continue the script depending on the result.
+	if [ "$?" != "0" ]; then
+		case "$?" in
+		1)	log "Synchronization failed > user: $users !!!"
+			;;
+		2)	log "Synchronization was done without errors, but some changes couldn't be done, so the mailboxes aren't perfectly synchronized for user: $users !!!"
+			;;
+		esac
+		if [ "$?" -gt "3" ]; then
+			log "Synchronization failed > user: $users !!!"
+		fi
 
-                ((VAR_COUNT_FAIL++))
-                VAR_FAILED_USER+=($users);
-        else
-                log "Synchronization done for user: $users ..."
+		((VAR_COUNT_FAIL++))
+		VAR_FAILED_USER+=($users);
+	else
+        	log "Synchronization done for user: $users ..."
 
-                cd $DIR_BACKUP
+		cd $DIR_BACKUP
 
-                log "Packaging to archive for user: $users ..."
-                $TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
+		log "Packaging to archive for user: $users ..."
+		$TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
 
-                log "Delete archive files for user: $users ..."
-                (ls -t $users-$FILE_DELETE|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE)|sort|uniq -u|xargs -r rm
-                if [ "$?" != "0" ]; then
-                        log "Delete old archive files $DIR_BACKUP .....................[FAILED]"
-                else
-                        log "Delete old archive files $DIR_BACKUP .....................[  OK  ]"
-                fi
+		log "Delete archive files for user: $users ..."
+		(ls -t $users-$FILE_DELETE|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE)|sort|uniq -u|xargs -r rm
+		if [ "$?" != "0" ]; then
+        		log "Delete old archive files $DIR_BACKUP .....................[FAILED]"
+		else
+        		log "Delete old archive files $DIR_BACKUP .....................[  OK  ]"
+		fi
 
-                log "Delete mailbox files for user: $users ..."
-                $RM_COMMAND "$DIR_BACKUP/$DOMAINPART" -rf
-                if [ "$?" != "0" ]; then
-                        log "Delete mailbox files at: $DIR_BACKUP .....................[FAILED]"
-                else
-                        log "Delete mailbox files at: $DIR_BACKUP .....................[  OK  ]"
-                fi
-        fi
+		log "Delete mailbox files for user: $users ..."
+		$RM_COMMAND "$DIR_BACKUP/$DOMAINPART" -rf
+		if [ "$?" != "0" ]; then
+        		log "Delete mailbox files at: $DIR_BACKUP .....................[FAILED]"
+		else
+        		log "Delete mailbox files at: $DIR_BACKUP .....................[  OK  ]"
+		fi
+	fi
 
-        log "Ended backup process for user: $users ..."
+	log "Ended backup process for user: $users ..."
         log ""
 done
 
@@ -496,11 +511,11 @@ log "- Number of determined users: $VAR_COUNT_USER"
 log "- ...Summary of failed users: $VAR_COUNT_FAIL"
 
 if [ "$VAR_COUNT_FAIL" -gt "0" ]; then
-        log "- ...Mailbox of failed users: "
-        for i in "${VAR_FAILED_USER[@]}"
-        do
-                log "- ... $i"
-        done
+	log "- ...Mailbox of failed users: "
+	for i in "${VAR_FAILED_USER[@]}"
+	do
+		log "- ... $i"
+	done
 fi
 
 log ""
@@ -515,13 +530,13 @@ log ""
 # If errors occurred on user backups, exit with return code 1 instead of 0.
 if [ "$VAR_COUNT_FAIL" -gt "0" ]; then
         sendmail ERROR
-        movelog
-        exit 1
+	movelog
+	exit 1
 else
-        # Status e-mail.
-        if [ $MAIL_STATUS = 'Y' ]; then
-                sendmail STATUS
-        fi
-        movelog
-        exit 0
+	# Status e-mail.
+	if [ $MAIL_STATUS = 'Y' ]; then
+        	sendmail STATUS
+	fi
+	movelog
+	exit 0
 fi
