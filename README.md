@@ -49,6 +49,10 @@ MAILDIR_GROUP='vmail'
 # FILE_USERLIST=''
 FILE_USERLIST=''
 
+# CUSTOM - Check when FILE_USERLIST was used, if the user per line was a
+#          valid e-mail address [Y|N].
+FILE_USERLIST_VALIDATE_EMAIL='N'
+
 # CUSTOM - Mail-Recipient.
 MAIL_RECIPIENT='you@example.com'
  
