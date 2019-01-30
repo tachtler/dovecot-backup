@@ -3,12 +3,14 @@ Dovecot backup shell script for saving all e-mail for every mailbox from dovecot
 
 This simple bash/shell script save all e-mail
 - from all mailboxes/user accounts
+- **OR** from a file with the e-mail addresses for every mailbox/user to backup
 - every mailbox into a separate *.tar.gz-file
 - read the data from the filesystem
 - with configurable parameter
 - with automatic deletion of old backup-files
 - and with logging into a growing up log file under ``/var/log``
 - with **statistic summary** at the end of the script execution
+- with **runtime summary** at the end of the script execution
 - on **successful execution** only a LOG file will be written.
 - on **error while execution**, a LOG file will be written and an error message will be send by e-mail.
 
@@ -32,14 +34,21 @@ SCRIPT_NAME='dovecot_backup'
 DIR_BACKUP='/srv/backup'
 FILE_BACKUP=dovecot_backup_`date '+%Y%m%d_%H%M%S'`.tar.gz
 FILE_DELETE='*.tar.gz'
-BACKUPFILES_DELETE=7
+BACKUPFILES_DELETE=14
  
 # CUSTOM - dovecot Folders.
 MAILDIR_TYPE='maildir'
 MAILDIR_NAME='Maildir'
 MAILDIR_USER='vmail'
 MAILDIR_GROUP='vmail'
- 
+
+# CUSTOM - Path and file name of a file with e-mail addresses to backup, if
+#          SET. If NOT, the script will determine all mailboxes by default.
+# FILE_USERLIST='/path/and/file/name/of/user/list/with/one/email/per/line'
+# - OR -
+# FILE_USERLIST=''
+FILE_USERLIST=''
+
 # CUSTOM - Mail-Recipient.
 MAIL_RECIPIENT='you@example.com'
  
