@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 03.10.2018                                                   #
-# Version     : 1.07                                                         #
+# Last update : 30.01.2019                                                   #
+# Version     : 1.08                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -21,7 +21,7 @@
 #  | (at your option) any later version.                                  |  #
 #  +----------------------------------------------------------------------+  #
 #                                                                            #
-# Copyright (c) 2018 by Klaus Tachtler.                                      #
+# Copyright (c) 2019 by Klaus Tachtler.                                      #
 #                                                                            #
 ##############################################################################
 
@@ -73,6 +73,14 @@
 #               with FreeBSD.                                                #
 #               Thanks to Alexander Preyer.                                  #
 # -------------------------------------------------------------------------- #
+# Version     : 1.08                                                         #
+# Description : GitHub Issue #9                                              #
+#               Add ability to only backup specific mailboxes, by using the  # 
+#               variable FILE_USERLIST with the file path and file name as   #
+#               content. The file must contain one e-mail address per line.  #
+#               Add the calculation of the script runtime.                   #
+#               Thanks to graue Ritter.                                      #
+# -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
 # -------------------------------------------------------------------------- #
@@ -97,6 +105,13 @@ MAILDIR_NAME='Maildir'
 MAILDIR_USER='vmail'
 MAILDIR_GROUP='vmail'
 
+# CUSTOM - Path and file name of a file with e-mail addresses to backup, if
+#          SET. If NOT, the script will determine all mailboxes by default.
+# FILE_USERLIST='/path/and/file/name/of/user/list/with/one/email/per/line'
+# - OR -
+# FILE_USERLIST=''
+FILE_USERLIST=''
+
 # CUSTOM - Mail-Recipient.
 MAIL_RECIPIENT='you@example.com'
 
@@ -118,6 +133,7 @@ DATE_COMMAND=`command -v date`
 MKDIR_COMMAND=`command -v mkdir`
 CHOWN_COMMAND=`command -v chown`
 CHMOD_COMMAND=`command -v chmod`
+GREP_COMMAND=`command -v grep`
 FILE_LOCK='/tmp/'$SCRIPT_NAME'.lock'
 FILE_LOG='/var/log/'$SCRIPT_NAME'.log'
 FILE_LAST_LOG='/tmp/'$SCRIPT_NAME'.log'
@@ -126,6 +142,7 @@ FILE_MBOXLIST='/tmp/'$SCRIPT_NAME'.mboxlist'
 VAR_HOSTNAME=`uname -n`
 VAR_SENDER='root@'$VAR_HOSTNAME
 VAR_EMAILDATE=`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%Z)'`
+declare -a VAR_LISTED_USER=()
 declare -a VAR_FAILED_USER=()
 VAR_COUNT_USER=0
 VAR_COUNT_FAIL=0
@@ -148,7 +165,7 @@ fi
 
 function movelog() {
         $CAT_COMMAND $FILE_LAST_LOG >> $FILE_LOG
-        $RM_COMMAND -f $FILE_LAST_LOG
+        $RM_COMMAND -f $FILE_LAST_LOG   
         $RM_COMMAND -f $FILE_LOCK
 }
 
@@ -180,8 +197,9 @@ $RM_COMMAND -f $FILE_MAIL
 
 # Main.
 log ""
+RUN_TIMESTAMP=`$DATE_COMMAND '+%s'`
 log "+-----------------------------------------------------------------+"
-log "| Start backup the mailboxes of dovecot server................... |"
+log "| Start backup of the mailboxes [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%Z)'`] |"
 log "+-----------------------------------------------------------------+"
 log ""
 log "Run script with following parameter:"
@@ -285,11 +303,21 @@ else
 fi
 
 # Check if command (file) NOT exist OR IS empty.
+if [ ! -s "$GREP_COMMAND" ]; then
+        log "Check if command '$GREP_COMMAND' was found.....................[FAILED]"
+        sendmail ERROR
+        movelog
+        exit 20
+else
+        log "Check if command '$GREP_COMMAND' was found.....................[  OK  ]"
+fi
+
+# Check if command (file) NOT exist OR IS empty.
 if [ ! -s "$PROG_SENDMAIL" ]; then
         log "Check if command '$PROG_SENDMAIL' was found................[FAILED]"
         sendmail ERROR
         movelog
-        exit 20
+        exit 21
 else
         log "Check if command '$PROG_SENDMAIL' was found................[  OK  ]"
 fi
@@ -318,6 +346,64 @@ else
         log "Check if DIR_BACKUP exists.................................[  OK  ]"
 fi
 
+# Check if FILE_USERLIST NOT set OR IS empty.
+log ""
+if [ ! -n "$FILE_USERLIST"  ]; then
+        log "Check if the variable FILE_USERLIST is set.................[  NO  ]"
+        log "Mailboxes to backup will be determined by doveadm user \"*\"."
+
+        for users in `doveadm user "*"`; do
+                VAR_LISTED_USER+=($users);
+        done
+else
+        log "Check if the variable FILE_USERLIST is set.................[  OK  ]"
+        log "Mailboxes to backup will read from file."
+        log ""
+        log "- File: [$FILE_USERLIST]"
+
+        # Check if file exists.
+        if [ -f "$FILE_USERLIST" ]; then
+                log "- Check if FILE_USERLIST exists............................[  OK  ]"
+        else
+                log "- Check if FILE_USERLIST exists............................[FAILED]"
+                log ""
+                sendmail ERROR
+                movelog
+                exit 40
+        fi
+
+        # Check if file is readable.
+        if [ -r "$FILE_USERLIST" ]; then
+                log "- Check if FILE_USERLIST is readable.......................[  OK  ]"
+        else
+                log "- Check if FILE_USERLIST is readable.......................[FAILED]"
+                log ""
+                sendmail ERROR
+                movelog
+                exit 41
+        fi
+
+        # Read file into variable.
+        while IFS= read -r line
+        do
+                # Check if basic email address syntax is valid.
+                if echo "${line}" | $GREP_COMMAND '^[a-zA-Z0-9]*@[a-zA-Z0-9]*\.[a-zA-Z0-9]*$' >/dev/null; then
+                        VAR_LISTED_USER+=($line);
+                else
+                        log ""
+                        log "ERROR: The email address: $line is not valid!"
+
+                        ((VAR_COUNT_FAIL++))
+                        VAR_FAILED_USER+=($line);
+                fi
+        done <"$FILE_USERLIST"
+fi
+
+# Check if VAR_COUNT_FAIL is greater than zero. If YES set counter to VAR_COUNT_USER.
+if [ "$VAR_COUNT_FAIL" -ne "0" ]; then
+        VAR_COUNT_USER=$VAR_COUNT_FAIL
+fi
+
 # Start backup.
 log ""
 log "+-----------------------------------------------------------------+"
@@ -326,7 +412,7 @@ log "+-----------------------------------------------------------------+"
 log ""
 
 # Start real backup process for all users.
-for users in `doveadm user "*"`; do
+for users in "${VAR_LISTED_USER[@]}"; do
         log "Start backup process for user: $users ..."
 
         ((VAR_COUNT_USER++))
@@ -395,7 +481,6 @@ if [ "$?" != "0" ]; then
         movelog
         exit 99
 else
-        log ""
         log "+-----------------------------------------------------------------+"
         log "| End backup $SCRIPT_NAME ..................................... |"
         log "+-----------------------------------------------------------------+"
@@ -404,7 +489,7 @@ fi
 
 # Finish syncing with runntime statistics.
 log "+-----------------------------------------------------------------+"
-log "| Runntime statistics............................................ |"
+log "| Runtime statistics............................................. |"
 log "+-----------------------------------------------------------------+"
 log ""
 log "- Number of determined users: $VAR_COUNT_USER"
@@ -419,12 +504,15 @@ if [ "$VAR_COUNT_FAIL" -gt "0" ]; then
 fi
 
 log ""
+END_TIMESTAMP=`$DATE_COMMAND '+%s'`
+log "Runtime: `$DATE_COMMAND -u -d "0 $END_TIMESTAMP seconds - $RUN_TIMESTAMP seconds" +'%H:%M:%S'` time elapsed."
+log ""
 log "+-----------------------------------------------------------------+"
-log "| Finish......................................................... |"
+log "| Finished creating the backups [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%Z)'`] |"
 log "+-----------------------------------------------------------------+"
 log ""
 
-# If errors occured on user backups, exit with return code 1 instead of 0.
+# If errors occurred on user backups, exit with return code 1 instead of 0.
 if [ "$VAR_COUNT_FAIL" -gt "0" ]; then
         sendmail ERROR
         movelog
