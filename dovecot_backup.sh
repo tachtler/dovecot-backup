@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 30.01.2019                                                   #
-# Version     : 1.09                                                         #
+# Last update : 31.01.2019                                                   #
+# Version     : 1.10                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -86,6 +86,9 @@
 #               FILE_USERLIST was set and used.                              #
 #               Thanks to kbridger.                                          #
 # -------------------------------------------------------------------------- #
+# Version     : 1.10                                                         #
+# Description : Code redesign.                                               #
+# -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
 # -------------------------------------------------------------------------- #
@@ -122,7 +125,7 @@ FILE_USERLIST=''
 FILE_USERLIST_VALIDATE_EMAIL='N'
 
 # CUSTOM - Mail-Recipient.
-MAIL_RECIPIENT='root@tachtler.net'
+MAIL_RECIPIENT='you@example.com'
 
 # CUSTOM - Status-Mail [Y|N].
 MAIL_STATUS='N'
@@ -204,12 +207,78 @@ $RM_COMMAND -f $FILE_MAIL
 
 }
 
+function error () {
+	# Parameters.
+	CODE_ERROR="$1"
+
+        sendmail ERROR
+	movelog
+	exit $CODE_ERROR
+}
+
+function headerblock () {
+	# Parameters.
+	TEXT_INPUT="$1"
+	LINE_COUNT=68
+
+        # Help variables.
+        WORD_COUNT=`echo $TEXT_INPUT | wc -c`
+        CHAR_AFTER=`expr $LINE_COUNT - $WORD_COUNT - 5`
+        LINE_SPACE=`expr $LINE_COUNT - 3`
+
+	# Format placeholder.
+	if [ "$CHAR_AFTER" -lt "0" ]; then
+		CHAR_AFTER="0"
+	fi
+
+	printf -v char '%*s' $CHAR_AFTER ''
+	printf -v line '%*s' $LINE_SPACE ''
+
+	log "+${line// /-}+"
+	log "| $TEXT_INPUT${char// /.} |"
+	log "+${line// /-}+"
+}
+
+function logline () {
+	# Parameters.
+	TEXT_INPUT="$1"
+	TRUE_FALSE="$2"
+	LINE_COUNT=68
+
+        # Help variables.
+        WORD_COUNT=`echo $TEXT_INPUT | wc -c`
+        CHAR_AFTER=`expr $LINE_COUNT - $WORD_COUNT - 9`
+
+	# Format placeholder.
+	if [ "$CHAR_AFTER" -lt "0" ]; then
+		CHAR_AFTER="0"
+	fi
+
+	printf -v char '%*s' $CHAR_AFTER ''
+
+	if [ "$TRUE_FALSE" == "true" ]; then
+		log "$TEXT_INPUT${char// /.}[  OK  ]"
+	else
+		log "$TEXT_INPUT${char// /.}[FAILED]"
+	fi
+}
+
+function checkcommand () {
+	# Parameters.
+        CHECK_COMMAND="$1"
+
+	if [ ! -s "$1" ]; then
+		logline "Check if command '$CHECK_COMMAND' was found " false
+		error 10
+	else
+		logline "Check if command '$CHECK_COMMAND' was found " true
+	fi
+}
+
 # Main.
 log ""
 RUN_TIMESTAMP=`$DATE_COMMAND '+%s'`
-log "+-----------------------------------------------------------------+"
-log "| Start backup of the mailboxes [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%Z)'`] |"
-log "+-----------------------------------------------------------------+"
+headerblock "Start backup of the mailboxes [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%Z)'`]"
 log ""
 log "SCRIPT_NAME.................: $SCRIPT_NAME"
 log ""
@@ -223,174 +292,71 @@ log "FILE_USERLIST_VALIDATE_EMAIL: $FILE_USERLIST_VALIDATE_EMAIL"
 log ""
 
 # Check if command (file) NOT exist OR IS empty.
-if [ ! -s "$DSYNC_COMMAND" ]; then
-        log "Check if command '$DSYNC_COMMAND' was found....................[FAILED]"
-        sendmail ERROR
-	movelog
-        exit 11
-else
-        log "Check if command '$DSYNC_COMMAND' was found....................[  OK  ]"
-fi
-
-# Check if command (file) NOT exist OR IS empty.
-if [ ! -s "$TAR_COMMAND" ]; then
-        log "Check if command '$TAR_COMMAND' was found......................[FAILED]"
-        sendmail ERROR
-	movelog
-        exit 12
-else
-        log "Check if command '$TAR_COMMAND' was found......................[  OK  ]"
-fi
-
-# Check if command (file) NOT exist OR IS empty.
-if [ ! -s "$TOUCH_COMMAND" ]; then
-        log "Check if command '$TOUCH_COMMAND' was found....................[FAILED]"
-        sendmail ERROR
-	movelog
-        exit 13
-else
-        log "Check if command '$TOUCH_COMMAND' was found....................[  OK  ]"
-fi
-
-# Check if command (file) NOT exist OR IS empty.
-if [ ! -s "$RM_COMMAND" ]; then
-        log "Check if command '$RM_COMMAND' was found.......................[FAILED]"
-        sendmail ERROR
-	movelog
-        exit 14
-else
-        log "Check if command '$RM_COMMAND' was found.......................[  OK  ]"
-fi
-
-# Check if command (file) NOT exist OR IS empty.
-if [ ! -s "$CAT_COMMAND" ]; then
-        log "Check if command '$CAT_COMMAND' was found......................[FAILED]"
-        sendmail ERROR
-	movelog
-        exit 15
-else
-        log "Check if command '$CAT_COMMAND' was found......................[  OK  ]"
-fi
-
-# Check if command (file) NOT exist OR IS empty.
-if [ ! -s "$DATE_COMMAND" ]; then
-        log "Check if command '$DATE_COMMAND' was found.....................[FAILED]"
-        sendmail ERROR
-	movelog
-        exit 16
-else
-        log "Check if command '$DATE_COMMAND' was found.....................[  OK  ]"
-fi
-
-# Check if command (file) NOT exist OR IS empty.
-if [ ! -s "$MKDIR_COMMAND" ]; then
-        log "Check if command '$MKDIR_COMMAND' was found....................[FAILED]"
-        sendmail ERROR
-	movelog
-        exit 17
-else
-        log "Check if command '$MKDIR_COMMAND' was found....................[  OK  ]"
-fi
-
-# Check if command (file) NOT exist OR IS empty.
-if [ ! -s "$CHOWN_COMMAND" ]; then
-        log "Check if command '$CHOWN_COMMAND' was found....................[FAILED]"
-        sendmail ERROR
-	movelog
-        exit 18
-else
-        log "Check if command '$CHOWN_COMMAND' was found....................[  OK  ]"
-fi
-
-# Check if command (file) NOT exist OR IS empty.
-if [ ! -s "$CHMOD_COMMAND" ]; then
-        log "Check if command '$CHMOD_COMMAND' was found....................[FAILED]"
-        sendmail ERROR
-	movelog
-        exit 19
-else
-        log "Check if command '$CHMOD_COMMAND' was found....................[  OK  ]"
-fi
-
-# Check if command (file) NOT exist OR IS empty.
-if [ ! -s "$GREP_COMMAND" ]; then
-        log "Check if command '$GREP_COMMAND' was found.....................[FAILED]"
-        sendmail ERROR
-	movelog
-        exit 20
-else
-        log "Check if command '$GREP_COMMAND' was found.....................[  OK  ]"
-fi
-
-# Check if command (file) NOT exist OR IS empty.
-if [ ! -s "$PROG_SENDMAIL" ]; then
-        log "Check if command '$PROG_SENDMAIL' was found................[FAILED]"
-        sendmail ERROR
-	movelog
-        exit 21
-else
-        log "Check if command '$PROG_SENDMAIL' was found................[  OK  ]"
-fi
+checkcommand $DSYNC_COMMAND
+checkcommand $TAR_COMMAND
+checkcommand $TOUCH_COMMAND
+checkcommand $RM_COMMAND
+checkcommand $CAT_COMMAND
+checkcommand $DATE_COMMAND
+checkcommand $MKDIR_COMMAND
+checkcommand $CHOWN_COMMAND
+checkcommand $CHMOD_COMMAND
+checkcommand $GREP_COMMAND
+checkcommand $PROG_SENDMAIL
 
 # Check if LOCK file NOT exist.
 if [ ! -e "$FILE_LOCK" ]; then
-        log "Check if script is NOT already runnig .....................[  OK  ]"
+        logline "Check if the script is NOT already runnig " true
 
         $TOUCH_COMMAND $FILE_LOCK
 else
-        log "Check if script is NOT already runnig .....................[FAILED]"
+        logline "Check if the script is NOT already runnig " false
         log ""
         log "ERROR: The script was already running, or LOCK file already exists!"
         log ""
-        sendmail ERROR
-	movelog
-        exit 30
+	error 20
 fi
 
 # Check if DIR_BACKUP Directory NOT exists.
 if [ ! -d "$DIR_BACKUP" ]; then
-        log "Check if DIR_BACKUP exists.................................[FAILED]"
+        logline "Check if DIR_BACKUP exists " false
 	$MKDIR_COMMAND -p $DIR_BACKUP
-        log "DIR_BACKUP was now created.................................[  OK  ]"
+        logline "DIR_BACKUP was now created " true
 else
-        log "Check if DIR_BACKUP exists.................................[  OK  ]"
+        logline "Check if DIR_BACKUP exists " true
 fi
 
 # Check if FILE_USERLIST NOT set OR IS empty.
 log ""
 if [ ! -n "$FILE_USERLIST"  ]; then
-        log "Check if the variable FILE_USERLIST is set.................[  NO  ]"
+        log "Check if the variable FILE_USERLIST is set ................[  NO  ]"
         log "Mailboxes to backup will be determined by doveadm user \"*\"."
 
 	for users in `doveadm user "*"`; do
 		VAR_LISTED_USER+=($users);
 	done
 else
-        log "Check if the variable FILE_USERLIST is set.................[  OK  ]"
-        log "Mailboxes to backup will read from file."
+        logline "Check if the variable FILE_USERLIST is set " true
+        log "Mailboxes to backup will be read from file."
         log ""
         log "- File: [$FILE_USERLIST]"
 
 	# Check if file exists.
 	if [ -f "$FILE_USERLIST" ]; then
-        	log "- Check if FILE_USERLIST exists............................[  OK  ]"
+        	logline "- Check if FILE_USERLIST exists " true
 	else
-        	log "- Check if FILE_USERLIST exists............................[FAILED]"
+        	logline "- Check if FILE_USERLIST exists " false
         	log ""
-	        sendmail ERROR
-		movelog
-        	exit 40
+		error 30
 	fi
 
 	# Check if file is readable.
 	if [ -r "$FILE_USERLIST" ]; then
-        	log "- Check if FILE_USERLIST is readable.......................[  OK  ]"
+        	logline "- Check if FILE_USERLIST is readable " true
 	else
-        	log "- Check if FILE_USERLIST is readable.......................[FAILED]"
+        	logline "- Check if FILE_USERLIST is readable " false
         	log ""
-	        sendmail ERROR
-		movelog
-        	exit 41
+		error 31
 	fi
 
 	# Read file into variable.
@@ -421,9 +387,7 @@ fi
 
 # Start backup.
 log ""
-log "+-----------------------------------------------------------------+"
-log "| Run backup $SCRIPT_NAME ..................................... |"
-log "+-----------------------------------------------------------------+"
+headerblock "Run backup $SCRIPT_NAME "
 log ""
 
 # Start real backup process for all users.
@@ -464,17 +428,17 @@ for users in "${VAR_LISTED_USER[@]}"; do
 		log "Delete archive files for user: $users ..."
 		(ls -t $users-$FILE_DELETE|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE)|sort|uniq -u|xargs -r rm
 		if [ "$?" != "0" ]; then
-        		log "Delete old archive files $DIR_BACKUP .....................[FAILED]"
+        		logline "Delete old archive files $DIR_BACKUP " false
 		else
-        		log "Delete old archive files $DIR_BACKUP .....................[  OK  ]"
+        		logline "Delete old archive files $DIR_BACKUP " true
 		fi
 
 		log "Delete mailbox files for user: $users ..."
 		$RM_COMMAND "$DIR_BACKUP/$DOMAINPART" -rf
 		if [ "$?" != "0" ]; then
-        		log "Delete mailbox files at: $DIR_BACKUP .....................[FAILED]"
+        		logline "Delete mailbox files at: $DIR_BACKUP " false
 		else
-        		log "Delete mailbox files at: $DIR_BACKUP .....................[  OK  ]"
+        		logline "Delete mailbox files at: $DIR_BACKUP " true
 		fi
 	fi
 
@@ -492,20 +456,14 @@ if [ "$?" != "0" ]; then
         retval $?
         log ""
         $RM_COMMAND -f $FILE_LOCK
-        sendmail ERROR
-        movelog
-        exit 99
+	error 99
 else
-        log "+-----------------------------------------------------------------+"
-        log "| End backup $SCRIPT_NAME ..................................... |"
-        log "+-----------------------------------------------------------------+"
+	headerblock "End backup $SCRIPT_NAME "
         log ""
 fi
 
 # Finish syncing with runntime statistics.
-log "+-----------------------------------------------------------------+"
-log "| Runtime statistics............................................. |"
-log "+-----------------------------------------------------------------+"
+headerblock "Runtime statistics "
 log ""
 log "- Number of determined users: $VAR_COUNT_USER"
 log "- ...Summary of failed users: $VAR_COUNT_FAIL"
@@ -522,9 +480,7 @@ log ""
 END_TIMESTAMP=`$DATE_COMMAND '+%s'`
 log "Runtime: `$DATE_COMMAND -u -d "0 $END_TIMESTAMP seconds - $RUN_TIMESTAMP seconds" +'%H:%M:%S'` time elapsed."
 log ""
-log "+-----------------------------------------------------------------+"
-log "| Finished creating the backups [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%Z)'`] |"
-log "+-----------------------------------------------------------------+"
+headerblock "Finished creating the backups [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%Z)'`]"
 log ""
 
 # If errors occurred on user backups, exit with return code 1 instead of 0.
