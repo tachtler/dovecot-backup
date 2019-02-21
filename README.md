@@ -26,16 +26,16 @@ Full description of **all** the parameter to set **to get the script to work**, 
 ##############################################################################
 # >>> Please edit following lines for personal settings and custom usages. ! #
 ##############################################################################
- 
+
 # CUSTOM - Script-Name.
 SCRIPT_NAME='dovecot_backup'
- 
+
 # CUSTOM - Backup-Files.
 DIR_BACKUP='/srv/backup'
 FILE_BACKUP=dovecot_backup_`date '+%Y%m%d_%H%M%S'`.tar.gz
 FILE_DELETE='*.tar.gz'
 BACKUPFILES_DELETE=14
- 
+
 # CUSTOM - dovecot Folders.
 MAILDIR_TYPE='maildir'
 MAILDIR_NAME='Maildir'
@@ -44,7 +44,7 @@ MAILDIR_GROUP='vmail'
 
 # CUSTOM - Path and file name of a file with e-mail addresses to backup, if
 #          SET. If NOT, the script will determine all mailboxes by default.
-# FILE_USERLIST='/path/and/file/name/of/user/list/with/one/email/per/line'
+# FILE_USERLIST='/path/and/file/name/of/user/list/with/one/user/per/line'
 # - OR -
 # FILE_USERLIST=''
 FILE_USERLIST=''
@@ -55,7 +55,7 @@ FILE_USERLIST_VALIDATE_EMAIL='N'
 
 # CUSTOM - Mail-Recipient.
 MAIL_RECIPIENT='you@example.com'
- 
+
 # CUSTOM - Status-Mail [Y|N].
 MAIL_STATUS='N'
 ```
