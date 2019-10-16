@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 31.01.2019                                                   #
-# Version     : 1.10                                                         #
+# Last update : 08.10.2019                                                   #
+# Version     : 1.11                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -89,6 +89,17 @@
 # Version     : 1.10                                                         #
 # Description : Code redesign.                                               #
 # -------------------------------------------------------------------------- #
+# Version     : 1.11                                                         #
+# Description : GitHub Issue #12                                             #
+#               Change of the temporary storage medium from DIR_BACKUP to    #
+#               TMP_FOLDER for temporary storage of extracted emails from    #
+#               the mailboxes was introduced. This allows the use of a       #
+#               temporary storage of the extracted emails from the mailboxes #
+#               on a faster storage medium, or also on a local storage       #
+#               medium, which avoids rights problems if DIR_BACKUP is e.g.   #
+#               an NFS mounted storage.                                      #
+#               Thanks to Krisztián Hamar.                                   #
+# -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
 # -------------------------------------------------------------------------- #
@@ -102,6 +113,7 @@
 SCRIPT_NAME='dovecot_backup'
 
 # CUSTOM - Backup-Files.
+TMP_FOLDER='/srv/backup'
 DIR_BACKUP='/srv/backup'
 FILE_BACKUP=dovecot_backup_`date '+%Y%m%d_%H%M%S'`.tar.gz
 FILE_DELETE='*.tar.gz'
@@ -145,7 +157,9 @@ DATE_COMMAND=`command -v date`
 MKDIR_COMMAND=`command -v mkdir`
 CHOWN_COMMAND=`command -v chown`
 CHMOD_COMMAND=`command -v chmod`
+MKTEMP_COMMAND=`command -v mktemp`
 GREP_COMMAND=`command -v grep`
+MV_COMMAND=`which --skip-alias mv`
 FILE_LOCK='/tmp/'$SCRIPT_NAME'.lock'
 FILE_LOG='/var/log/'$SCRIPT_NAME'.log'
 FILE_LAST_LOG='/tmp/'$SCRIPT_NAME'.log'
@@ -282,6 +296,7 @@ headerblock "Start backup of the mailboxes [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:
 log ""
 log "SCRIPT_NAME.................: $SCRIPT_NAME"
 log ""
+log "TMP_FOLDER..................: $TMP_FOLDER"
 log "DIR_BACKUP..................: $DIR_BACKUP"
 log ""
 log "MAIL_RECIPIENT..............: $MAIL_RECIPIENT"
@@ -302,6 +317,8 @@ checkcommand $MKDIR_COMMAND
 checkcommand $CHOWN_COMMAND
 checkcommand $CHMOD_COMMAND
 checkcommand $GREP_COMMAND
+checkcommand $MKTEMP_COMMAND
+checkcommand $MV_COMMAND
 checkcommand $PROG_SENDMAIL
 
 # Check if LOCK file NOT exist.
@@ -317,11 +334,16 @@ else
 	error 20
 fi
 
-# Check if DIR_BACKUP Directory NOT exists.
+# Check if DIR_BACKUP directory NOT exists.
 if [ ! -d "$DIR_BACKUP" ]; then
         logline "Check if DIR_BACKUP exists " false
 	$MKDIR_COMMAND -p $DIR_BACKUP
-        logline "DIR_BACKUP was now created " true
+	if [ "$?" != "0" ]; then
+        	logline "DIR_BACKUP was NOT created " false
+		error 21
+	else
+        	logline "DIR_BACKUP was now created " true
+	fi
 else
         logline "Check if DIR_BACKUP exists " true
 fi
@@ -390,6 +412,33 @@ log ""
 headerblock "Run backup $SCRIPT_NAME "
 log ""
 
+# Check if TMP_FOLDER directory path NOT exists, else create it.
+if [ ! -d "$TMP_FOLDER" ]; then
+        logline "Check if TMP_FOLDER exists " false
+	$MKDIR_COMMAND -p $TMP_FOLDER
+	if [ "$?" != "0" ]; then
+		logline "Create temporary '$TMP_FOLDER' folder " false
+		error 40
+	else
+		logline "Create temporary '$TMP_FOLDER' folder " true
+	fi
+else
+        logline "Check if TMP_FOLDER exists " true
+fi
+
+# Make temporary directory DIR_TEMP inside TMP_FOLDER.
+DIR_TEMP=$($MKTEMP_COMMAND -d -p $TMP_FOLDER -t $SCRIPT_NAME-XXXXXXXXXXXX)
+if [ "$?" != "0" ]; then
+	logline "Create temporary '$DIR_TEMP' folder " false
+	error 41
+else
+	logline "Create temporary '$DIR_TEMP' folder " true
+	log ""
+fi
+
+# Set rights permissions to DIR_TEMP.
+$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_TEMP
+
 # Start real backup process for all users.
 for users in "${VAR_LISTED_USER[@]}"; do
 	log "Start backup process for user: $users ..."
@@ -397,7 +446,7 @@ for users in "${VAR_LISTED_USER[@]}"; do
 	((VAR_COUNT_USER++))
 	DOMAINPART=${users#*@}
 	LOCALPART=${users%%@*}
-	LOCATION="$DIR_BACKUP/$DOMAINPART/$LOCALPART/$MAILDIR_NAME"
+	LOCATION="$DIR_TEMP/$DOMAINPART/$LOCALPART/$MAILDIR_NAME"
 	USERPART="$DOMAINPART/$LOCALPART"
 
 	log "Extract mailbox data for user: $users ..."
@@ -420,31 +469,51 @@ for users in "${VAR_LISTED_USER[@]}"; do
 	else
         	log "Synchronization done for user: $users ..."
 
-		cd $DIR_BACKUP
+		cd $DIR_TEMP
 
 		log "Packaging to archive for user: $users ..."
 		$TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
 
+		log "Delete mailbox files for user: $users ..."
+		$RM_COMMAND "$DIR_TEMP/$DOMAINPART" -rf
+		if [ "$?" != "0" ]; then
+        		logline "Delete mailbox files at: $DIR_TEMP " false
+		else
+        		logline "Delete mailbox files at: $DIR_TEMP " true
+		fi
+
+		log "Copying archive file for user: $users ..."
+		$MV_COMMAND "$DIR_TEMP/$users-$FILE_BACKUP" "$DIR_BACKUP"
+		if [ "$?" != "0" ]; then
+        		logline "Move archive file for user to: $DIR_BACKUP " false
+		else
+        		logline "Move archive file for user to: $DIR_BACKUP " true
+		fi
+
+		cd $DIR_BACKUP
+
 		log "Delete archive files for user: $users ..."
 		(ls -t $users-$FILE_DELETE|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE)|sort|uniq -u|xargs -r rm
 		if [ "$?" != "0" ]; then
-        		logline "Delete old archive files $DIR_BACKUP " false
+        		logline "Delete old archive files from: $DIR_BACKUP " false
 		else
-        		logline "Delete old archive files $DIR_BACKUP " true
-		fi
-
-		log "Delete mailbox files for user: $users ..."
-		$RM_COMMAND "$DIR_BACKUP/$DOMAINPART" -rf
-		if [ "$?" != "0" ]; then
-        		logline "Delete mailbox files at: $DIR_BACKUP " false
-		else
-        		logline "Delete mailbox files at: $DIR_BACKUP " true
+        		logline "Delete old archive files from: $DIR_BACKUP " true
 		fi
 	fi
 
 	log "Ended backup process for user: $users ..."
         log ""
 done
+
+# Delete the temporary folder DIR_TEMP.
+$RM_COMMAND $DIR_TEMP -rf
+if [ "$?" != "0" ]; then
+	logline "Delete temporary '$DIR_TEMP' folder " false
+	error 42
+else
+	logline "Delete temporary '$DIR_TEMP' folder " true
+	log ""
+fi
 
 # Set owner and rights permissions to backup directory and backup files.
 $CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_BACKUP
