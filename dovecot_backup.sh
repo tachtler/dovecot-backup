@@ -143,7 +143,7 @@ FILE_USERLIST=''
 FILE_USERLIST_VALIDATE_EMAIL='N'
 
 # CUSTOM - Mail-Recipient.
-MAIL_RECIPIENT='root@tachtler.net'
+MAIL_RECIPIENT='you@example.com'
 
 # CUSTOM - Status-Mail [Y|N].
 MAIL_STATUS='N'
