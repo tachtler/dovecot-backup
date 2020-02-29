@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 08.10.2019                                                   #
-# Version     : 1.11                                                         #
+# Last update : 29.02.2020                                                   #
+# Version     : 1.12                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -21,7 +21,7 @@
 #  | (at your option) any later version.                                  |  #
 #  +----------------------------------------------------------------------+  #
 #                                                                            #
-# Copyright (c) 2019 by Klaus Tachtler.                                      #
+# Copyright (c) 2020 by Klaus Tachtler.                                      #
 #                                                                            #
 ##############################################################################
 
@@ -100,6 +100,12 @@
 #               an NFS mounted storage.                                      #
 #               Thanks to Krisztián Hamar.                                   #
 # -------------------------------------------------------------------------- #
+# Version     : 1.12                                                         #
+# Description : GitHub: Issue #13                                            #
+#               Change in mv command detection due to initial problems with  #
+#               Ubuntu 18.04 LTS.                                            #
+#               Thanks to hatted.                                            #
+# -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
 # -------------------------------------------------------------------------- #
@@ -137,7 +143,7 @@ FILE_USERLIST=''
 FILE_USERLIST_VALIDATE_EMAIL='N'
 
 # CUSTOM - Mail-Recipient.
-MAIL_RECIPIENT='you@example.com'
+MAIL_RECIPIENT='root@tachtler.net'
 
 # CUSTOM - Status-Mail [Y|N].
 MAIL_STATUS='N'
@@ -159,7 +165,7 @@ CHOWN_COMMAND=`command -v chown`
 CHMOD_COMMAND=`command -v chmod`
 MKTEMP_COMMAND=`command -v mktemp`
 GREP_COMMAND=`command -v grep`
-MV_COMMAND=`which --skip-alias mv`
+MV_COMMAND=`command which mv`
 FILE_LOCK='/tmp/'$SCRIPT_NAME'.lock'
 FILE_LOG='/var/log/'$SCRIPT_NAME'.log'
 FILE_LAST_LOG='/tmp/'$SCRIPT_NAME'.log'
