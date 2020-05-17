@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 29.02.2020                                                   #
-# Version     : 1.12                                                         #
+# Last update : 17.05.2020                                                   #
+# Version     : 1.13                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -106,6 +106,13 @@
 #               Ubuntu 18.04 LTS.                                            #
 #               Thanks to hatted.                                            #
 # -------------------------------------------------------------------------- #
+# Version     : 1.13                                                         #
+# Description : GitHub: Issue #16                                            #
+#               Changed the timezone format to hours: for example (+0100) at #
+#               VAR_EMAILDATE, because not all e-Mail user interfaces can    #
+#               handle the letter time zone notation.                        #
+#               Thanks to velzebop.                                          #
+# -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
 # -------------------------------------------------------------------------- #
@@ -173,7 +180,7 @@ FILE_MAIL='/tmp/'$SCRIPT_NAME'.mail'
 FILE_MBOXLIST='/tmp/'$SCRIPT_NAME'.mboxlist'
 VAR_HOSTNAME=`uname -n`
 VAR_SENDER='root@'$VAR_HOSTNAME
-VAR_EMAILDATE=`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%Z)'`
+VAR_EMAILDATE=`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%z)'`
 declare -a VAR_LISTED_USER=()
 declare -a VAR_FAILED_USER=()
 VAR_COUNT_USER=0
@@ -298,7 +305,7 @@ function checkcommand () {
 # Main.
 log ""
 RUN_TIMESTAMP=`$DATE_COMMAND '+%s'`
-headerblock "Start backup of the mailboxes [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%Z)'`]"
+headerblock "Start backup of the mailboxes [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%z)'`]"
 log ""
 log "SCRIPT_NAME.................: $SCRIPT_NAME"
 log ""
@@ -555,7 +562,7 @@ log ""
 END_TIMESTAMP=`$DATE_COMMAND '+%s'`
 log "Runtime: `$DATE_COMMAND -u -d "0 $END_TIMESTAMP seconds - $RUN_TIMESTAMP seconds" +'%H:%M:%S'` time elapsed."
 log ""
-headerblock "Finished creating the backups [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%Z)'`]"
+headerblock "Finished creating the backups [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%z)'`]"
 log ""
 
 # If errors occurred on user backups, exit with return code 1 instead of 0.
