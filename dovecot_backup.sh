@@ -115,8 +115,9 @@
 # -------------------------------------------------------------------------- #
 # Version     : 1.14                                                         #
 # Description : GitHub: Issue #18                                            #
-#               Add dash '-' to the list of valid chars for the e-Mail       #
-#               address validation for the localpart and the domainpart.     #
+#               Add dash '-' and dot '.' to the list of valid chars for the  #
+#               e-Mail address validation for the localpart and the          #
+#               domainpart.                                                  #
 #               Thanks to Henrocker.                                         #
 # -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
@@ -406,7 +407,7 @@ else
 		# Check for valid e-mail address.
 		if [ $FILE_USERLIST_VALIDATE_EMAIL = 'Y' ]; then
 			# Check if basic email address syntax is valid.
-			if echo "${line}" | $GREP_COMMAND '^[a-zA-Z0-9-]*@[a-zA-Z0-9-]*\.[a-zA-Z0-9]*$' >/dev/null; then
+			if echo "${line}" | $GREP_COMMAND '^[a-zA-Z0-9.-]*@[a-zA-Z0-9.-]*\.[a-zA-Z0-9]*$' >/dev/null; then
 				VAR_LISTED_USER+=($line);
 			else
         			log ""
