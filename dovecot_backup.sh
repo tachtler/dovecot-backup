@@ -400,7 +400,7 @@ else
 		# Check for valid e-mail address.
 		if [ $FILE_USERLIST_VALIDATE_EMAIL = 'Y' ]; then
 			# Check if basic email address syntax is valid.
-			if echo "${line}" | $GREP_COMMAND '^[a-zA-Z0-9]*@[a-zA-Z0-9]*\.[a-zA-Z0-9]*$' >/dev/null; then
+			if echo "${line}" | $GREP_COMMAND '^[a-zA-Z0-9.-]*@[a-zA-Z0-9.-]*\.[a-zA-Z]*$' >/dev/null; then
 				VAR_LISTED_USER+=($line);
 			else
         			log ""
