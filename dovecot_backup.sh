@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 17.05.2020                                                   #
-# Version     : 1.13                                                         #
+# Last update : 15.07.2020                                                   #
+# Version     : 1.14                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -112,6 +112,12 @@
 #               VAR_EMAILDATE, because not all e-Mail user interfaces can    #
 #               handle the letter time zone notation.                        #
 #               Thanks to velzebop.                                          #
+# -------------------------------------------------------------------------- #
+# Version     : 1.14                                                         #
+# Description : GitHub: Issue #18                                            #
+#               Add dash '-' to the list of valid chars for the e-Mail       #
+#               address validation for the localpart and the domainpart.     #
+#               Thanks to Henrocker.                                         #
 # -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
@@ -400,7 +406,7 @@ else
 		# Check for valid e-mail address.
 		if [ $FILE_USERLIST_VALIDATE_EMAIL = 'Y' ]; then
 			# Check if basic email address syntax is valid.
-			if echo "${line}" | $GREP_COMMAND '^[a-zA-Z0-9]*@[a-zA-Z0-9]*\.[a-zA-Z0-9]*$' >/dev/null; then
+			if echo "${line}" | $GREP_COMMAND '^[a-zA-Z0-9-]*@[a-zA-Z0-9-]*\.[a-zA-Z0-9]*$' >/dev/null; then
 				VAR_LISTED_USER+=($line);
 			else
         			log ""
