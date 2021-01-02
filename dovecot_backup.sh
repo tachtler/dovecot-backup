@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 15.07.2020                                                   #
-# Version     : 1.14                                                         #
+# Last update : 02.01.2021                                                   #
+# Version     : 1.15                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -120,6 +120,10 @@
 #               domainpart.                                                  #
 #               Thanks to Henrocker.                                         #
 # -------------------------------------------------------------------------- #
+# Version     : 1.15                                                         #
+# Description : Add flexibility to use the -s option to create incremental   #
+#               backups of mailboxes.                                        #
+# -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
 # -------------------------------------------------------------------------- #
@@ -138,6 +142,12 @@ DIR_BACKUP='/srv/backup'
 FILE_BACKUP=dovecot_backup_`date '+%Y%m%d_%H%M%S'`.tar.gz
 FILE_DELETE='*.tar.gz'
 BACKUPFILES_DELETE=14
+
+# CUSTOM - Storage of incremental backup status (the output of the -s flag)
+INCREMENTAL_STATE_DIR=${DIR_BACKUP}/incremental_state
+INCREMENTAL_STATE_PARTIAL=incremental_state_
+INCREMENTAL_STATE_FILE=${INCREMENTAL_STATE_PARTIAL}`date '+%Y%m%d_%H%M%S'`
+INCREMENTAL_FILE_BACKUP=dovecot_incremental_backup_`date '+%Y%m%d_%H%M%S'`.tar.gz
 
 # CUSTOM - dovecot Folders.
 MAILDIR_TYPE='maildir'
@@ -162,6 +172,9 @@ MAIL_RECIPIENT='you@example.com'
 # CUSTOM - Status-Mail [Y|N].
 MAIL_STATUS='N'
 
+# CUSTOM - Should the tar command be quiet (Y) or print all of the files included (N)?
+QUIET_TAR='N'
+
 ##############################################################################
 # >>> Normaly there is no need to change anything below this comment line. ! #
 ##############################################################################
@@ -179,9 +192,12 @@ CHOWN_COMMAND=`command -v chown`
 CHMOD_COMMAND=`command -v chmod`
 MKTEMP_COMMAND=`command -v mktemp`
 GREP_COMMAND=`command -v grep`
+TR_COMMAND=`command -v tr`
 MV_COMMAND=`command which mv`
+FIND_COMMAND=`command -v find`
 FILE_LOCK='/tmp/'$SCRIPT_NAME'.lock'
-FILE_LOG='/var/log/'$SCRIPT_NAME'.log'
+FILE_LOG_DIR='/var/log'
+FILE_LOG=${FILE_LOG_DIR}/$SCRIPT_NAME'.log'
 FILE_LAST_LOG='/tmp/'$SCRIPT_NAME'.log'
 FILE_MAIL='/tmp/'$SCRIPT_NAME'.mail'
 FILE_MBOXLIST='/tmp/'$SCRIPT_NAME'.mboxlist'
@@ -210,7 +226,9 @@ fi
 }
 
 function movelog() {
-	$CAT_COMMAND $FILE_LAST_LOG >> $FILE_LOG
+	if [ -w ${FILE_LOG_DIR} ]; then
+		$CAT_COMMAND $FILE_LAST_LOG >> $FILE_LOG 
+	fi
 	$RM_COMMAND -f $FILE_LAST_LOG	
 	$RM_COMMAND -f $FILE_LOCK
 }
@@ -245,7 +263,9 @@ function error () {
 	# Parameters.
 	CODE_ERROR="$1"
 
-        sendmail ERROR
+	if [ "x${PROG_SENDMAIL}" != "x" ] &&  [ ${CODE_ERROR} -gt "0" ]; then
+		sendmail ERROR
+	fi
 	movelog
 	exit $CODE_ERROR
 }
@@ -301,13 +321,28 @@ function checkcommand () {
 	# Parameters.
         CHECK_COMMAND="$1"
 
-	if [ ! -s "$1" ]; then
+	if [ -z "$2" ]; then
 		logline "Check if command '$CHECK_COMMAND' was found " false
 		error 10
 	else
-		logline "Check if command '$CHECK_COMMAND' was found " true
+		logline "Check if command $CHECK_COMMAND was found " true
 	fi
 }
+
+# Process command line
+if [ ! -z "${1}" ]; then
+	COMMAND_ARGUMENT=`echo $1 | ${TR_COMMAND} '[:upper:]' '[:lower:]'`
+	if [ "${COMMAND_ARGUMENT}" == "-h" ] || [ "${COMMAND_ARGUMENT}" == "--help" ]; then
+		echo "$0 [incremental|incrementalreset]"
+		echo "incremental      - backup only the emails that have been received since the last backup."
+		echo "                   If no incremental state is detected then do a full backup."
+		echo "incrementalreset - Create a full backup and set up the incremental state.  It is not necessary"
+		echo "                   to use incrementalreset before incremental."
+		echo
+		exit 0
+	fi
+fi
+
 
 # Main.
 log ""
@@ -327,19 +362,21 @@ log "FILE_USERLIST_VALIDATE_EMAIL: $FILE_USERLIST_VALIDATE_EMAIL"
 log ""
 
 # Check if command (file) NOT exist OR IS empty.
-checkcommand $DSYNC_COMMAND
-checkcommand $TAR_COMMAND
-checkcommand $TOUCH_COMMAND
-checkcommand $RM_COMMAND
-checkcommand $CAT_COMMAND
-checkcommand $DATE_COMMAND
-checkcommand $MKDIR_COMMAND
-checkcommand $CHOWN_COMMAND
-checkcommand $CHMOD_COMMAND
-checkcommand $GREP_COMMAND
-checkcommand $MKTEMP_COMMAND
-checkcommand $MV_COMMAND
-checkcommand $PROG_SENDMAIL
+checkcommand $PROG_SENDMAIL sendmail
+checkcommand $DSYNC_COMMAND dsync
+checkcommand $TAR_COMMAND tar
+checkcommand $TOUCH_COMMAND touch
+checkcommand $RM_COMMAND rm
+checkcommand $CAT_COMMAND cat
+checkcommand $DATE_COMMAND date
+checkcommand $MKDIR_COMMAND mkdir
+checkcommand $CHOWN_COMMAND chown
+checkcommand $CHMOD_COMMAND chmod
+checkcommand $GREP_COMMAND grep
+checkcommand $MKTEMP_COMMAND mktemp
+checkcommand $MV_COMMAND mv
+checkcommand $FIND_COMMAND find
+checkcommand $TR_COMMAND tr
 
 # Check if LOCK file NOT exist.
 if [ ! -e "$FILE_LOCK" ]; then
@@ -367,6 +404,23 @@ if [ ! -d "$DIR_BACKUP" ]; then
 else
         logline "Check if DIR_BACKUP exists " true
 fi
+
+# Check if INCREMENTAL_STATE_DIR directory not exists.
+if { [ "x${COMMAND_ARGUMENT}" == "xincremental" ] || [ "x{COMMAND_ARGUMENT}" == "xincrementalreset" ]; } && [ ! -d "$INCREMENTAL_STATE_DIR" ]; then
+        logline "Check if INCREMENTAL_STATE_DIR exists " false
+	$MKDIR_COMMAND -p $INCREMENTAL_STATE_DIR
+	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $INCREMENTAL_STATE_DIR
+	$CHMOD_COMMAND 770 $INCREMENTAL_STATE_DIR
+	if [ "$?" != "0" ]; then
+		logline "INCREMENTAL_STATE_DIR was NOT created " false
+		error 22
+	else
+		logline "INCREMENTAL_STATE_DIR was now created " true
+	fi
+else
+        logline "Check if INCREMENTAL_STATE_DIR exists " true
+fi
+
 
 # Check if FILE_USERLIST NOT set OR IS empty.
 log ""
@@ -458,6 +512,7 @@ fi
 
 # Set rights permissions to DIR_TEMP.
 $CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_TEMP
+$CHMOD_COMMAND 770 $DIR_TEMP
 
 # Start real backup process for all users.
 for users in "${VAR_LISTED_USER[@]}"; do
@@ -469,8 +524,47 @@ for users in "${VAR_LISTED_USER[@]}"; do
 	LOCATION="$DIR_TEMP/$DOMAINPART/$LOCALPART/$MAILDIR_NAME"
 	USERPART="$DOMAINPART/$LOCALPART"
 
-	log "Extract mailbox data for user: $users ..."
-	$DSYNC_COMMAND -o plugin/quota= -f -u $users backup $MAILDIR_TYPE:$LOCATION
+	# Set the default to be a full backup
+	FULL_OR_INCREMENTAL_FLAG=(-f)
+	CAPTURE_OUTPUT="&1"
+	# Test to see whether this is an incremental backup
+	# You cannot mix full and incremental backups.  The first incremental backup will be a full backup and
+	#  it'll be incremental from that point onwards.
+	#  i.e. DO NOT use a -f flag for a full backup and then expect -s to pick up from that point
+	if [ "x${COMMAND_ARGUMENT}" == "xincremental"  ]; then
+		# User wants to do an incremental backup
+		# Find the incremental status file.  If it doesn't exist then run a backup using the option
+		#  to create the status file
+		user_latest_state_file=`${FIND_COMMAND} ${INCREMENTAL_STATE_DIR} -maxdepth 1 -name $users-${INCREMENTAL_STATE_PARTIAL}\* -print -quit`
+		if [ -f "${user_latest_state_file}" ]; then
+			# The user has a latest state so use that
+			user_latest_state_file=`ls -t ${INCREMENTAL_STATE_DIR}/$users-${INCREMENTAL_STATE_PARTIAL}* | head -1`
+			user_state=`cat ${user_latest_state_file}`
+			FULL_OR_INCREMENTAL_FLAG=(-s ${user_state})
+		else
+			FULL_OR_INCREMENTAL_FLAG=(-s '')
+		fi
+		# Ensure that we capture the state
+		CAPTURE_OUTPUT="${INCREMENTAL_STATE_DIR}/$users-${INCREMENTAL_STATE_FILE}"
+
+		# Set the tar backup to show that this is incremental
+		FILE_BACKUP=${INCREMENTAL_FILE_BACKUP}
+
+		log "Extract INCREMENTAL mailbox data for user: $users ..."
+	elif [ "x${COMMAND_ARGUMENT}" == "incrementalreset" ]; then
+		FULL_OR_INCREMENTAL_FLAG=(-s '')
+		# Ensure that we capture the state
+		CAPTURE_OUTPUT="${INCREMENTAL_STATE_DIR}/$users-${INCREMENTAL_STATE_FILE}"
+
+		# Set the tar backup to show that this is incremental
+		FILE_BACKUP=${INCREMENTAL_FILE_BACKUP}
+
+		log "Extracting and resetting an INCREMENTAL set of mailbox data for user: $users ..."
+	else
+		log "Extract mailbox data for user: $users ..."
+	fi
+
+	$DSYNC_COMMAND -o plugin/quota= -u $users backup "${FULL_OR_INCREMENTAL_FLAG[@]}" $MAILDIR_TYPE:$LOCATION >${CAPTURE_OUTPUT}
 
 	# Check the status of dsync and continue the script depending on the result.
 	if [ "$?" != "0" ]; then
@@ -492,7 +586,11 @@ for users in "${VAR_LISTED_USER[@]}"; do
 		cd $DIR_TEMP
 
 		log "Packaging to archive for user: $users ..."
-		$TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
+		quiet_tar=v
+		if [ ! -z ${QUIET_TAR} ] && [ ${QUIET_TAR} == "Y" ]; then
+			quiet_tar=
+		fi
+		$TAR_COMMAND -cz${quiet_tar}f $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
 
 		log "Delete mailbox files for user: $users ..."
 		$RM_COMMAND "$DIR_TEMP/$DOMAINPART" -rf
@@ -518,6 +616,16 @@ for users in "${VAR_LISTED_USER[@]}"; do
         		logline "Delete old archive files from: $DIR_BACKUP " false
 		else
         		logline "Delete old archive files from: $DIR_BACKUP " true
+		fi
+
+		if [ "x${COMMAND_ARGUMENT}" == "xincremental"  ] || [ "x${COMMAND_ARGUMENT}" == "xincrementalreset" ]; then
+			log "Deleting older incremental state files for user: $users ..."
+			(ls -t ${INCREMENTAL_STATE_DIR}/$users-${INCREMENTAL_STATE_PARTIAL}*|head -n 2;ls ${INCREMENTAL_STATE_DIR}/$users-${INCREMENTAL_STATE_PARTIAL}*)|sort| uniq -u | xargs -r rm
+			if [ "$?" != "0" ]; then
+				logline "Deleting user state files from ${DIR_BACKUP} " false
+			else
+				logline "Deleting user state files from ${DIR_BACKUP} " true
+			fi
 		fi
 	fi
 
