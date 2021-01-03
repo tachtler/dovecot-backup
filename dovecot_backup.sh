@@ -526,7 +526,7 @@ for users in "${VAR_LISTED_USER[@]}"; do
 
 	# Set the default to be a full backup
 	FULL_OR_INCREMENTAL_FLAG=(-f)
-	CAPTURE_OUTPUT="&1"
+	CAPTURE_OUTPUT="/dev/nul1"
 	# Test to see whether this is an incremental backup
 	# You cannot mix full and incremental backups.  The first incremental backup will be a full backup and
 	#  it'll be incremental from that point onwards.
