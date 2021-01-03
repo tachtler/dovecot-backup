@@ -406,19 +406,21 @@ else
 fi
 
 # Check if INCREMENTAL_STATE_DIR directory not exists.
-if { [ "x${COMMAND_ARGUMENT}" == "xincremental" ] || [ "x{COMMAND_ARGUMENT}" == "xincrementalreset" ]; } && [ ! -d "$INCREMENTAL_STATE_DIR" ]; then
-        logline "Check if INCREMENTAL_STATE_DIR exists " false
-	$MKDIR_COMMAND -p $INCREMENTAL_STATE_DIR
-	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $INCREMENTAL_STATE_DIR
-	$CHMOD_COMMAND 770 $INCREMENTAL_STATE_DIR
-	if [ "$?" != "0" ]; then
-		logline "INCREMENTAL_STATE_DIR was NOT created " false
-		error 22
+if [ "x${COMMAND_ARGUMENT}" == "xincremental" ] || [ "x${COMMAND_ARGUMENT}" == "xincrementalreset" ]; then
+	if [ ! -d "$INCREMENTAL_STATE_DIR" ]; then
+		logline "Check if INCREMENTAL_STATE_DIR exists " false
+		$MKDIR_COMMAND -p $INCREMENTAL_STATE_DIR
+		$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $INCREMENTAL_STATE_DIR
+		$CHMOD_COMMAND 770 $INCREMENTAL_STATE_DIR
+		if [ "$?" != "0" ]; then
+			logline "INCREMENTAL_STATE_DIR was NOT created " false
+			error 22
+		else
+			logline "INCREMENTAL_STATE_DIR was now created " true
+		fi
 	else
-		logline "INCREMENTAL_STATE_DIR was now created " true
+		logline "Check if INCREMENTAL_STATE_DIR exists " true
 	fi
-else
-        logline "Check if INCREMENTAL_STATE_DIR exists " true
 fi
 
 
@@ -526,7 +528,7 @@ for users in "${VAR_LISTED_USER[@]}"; do
 
 	# Set the default to be a full backup
 	FULL_OR_INCREMENTAL_FLAG=(-f)
-	CAPTURE_OUTPUT="/dev/nul1"
+	CAPTURE_OUTPUT="/dev/null"
 	# Test to see whether this is an incremental backup
 	# You cannot mix full and incremental backups.  The first incremental backup will be a full backup and
 	#  it'll be incremental from that point onwards.
