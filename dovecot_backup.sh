@@ -407,15 +407,15 @@ else
         logline "Check if TMP_FOLDER group is $MAILDIR_GROUP " true
 fi
 
-# Check if DIR_BACKUP directory NOT exists.
+# Check if DIR_BACKUP directory NOT exists, else create it.
 if [ ! -d "$DIR_BACKUP" ]; then
         logline "Check if DIR_BACKUP exists " false
 	$MKDIR_COMMAND -p $DIR_BACKUP
 	if [ "$?" != "0" ]; then
-        	logline "DIR_BACKUP was NOT created " false
+		logline "Create backup '$DIR_BACKUP' folder " false
 		error 24
 	else
-        	logline "DIR_BACKUP was now created " true
+		logline "Create backup '$DIR_BACKUP' folder " true
 	fi
 else
         logline "Check if DIR_BACKUP exists " true
@@ -618,7 +618,7 @@ else
        	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " true
 fi
 
-# Set rights permissions to backup directory and backup files.
+# Set rights permission to backup directory.
 $CHMOD_COMMAND 700 $DIR_BACKUP
 if [ "$?" != "0" ]; then
        	logline "Set permission of DIR_BACKUP to drwx------ " false
@@ -669,16 +669,17 @@ log ""
 headerblock "Finished creating the backups [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%z)'`]"
 log ""
 
+# Move the log to the permanent log file.
+movelog
+
 # If errors occurred on user backups, exit with return code 1 instead of 0.
 if [ "$VAR_COUNT_FAIL" -gt "0" ]; then
         sendmail ERROR
-	movelog
 	exit 1
 else
 	# Status e-mail.
 	if [ $MAIL_STATUS = 'Y' ]; then
         	sendmail STATUS
 	fi
-	movelog
 	exit 0
 fi
