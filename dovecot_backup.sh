@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 15.07.2020                                                   #
-# Version     : 1.14                                                         #
+# Last update : 21.02.2021                                                   #
+# Version     : 1.15                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -119,6 +119,12 @@
 #               e-Mail address validation for the localpart and the          #
 #               domainpart.                                                  #
 #               Thanks to Henrocker.                                         #
+# -------------------------------------------------------------------------- #
+# Version     : 1.15                                                         #
+# Description : GitHub: Issue #21                                            #
+#               Set the required ownership on TMP_FOLDER before running the  #
+#               script.                                                      #
+#               Thanks to LarsBel.                                           #
 # -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
@@ -354,13 +360,42 @@ else
 	error 20
 fi
 
+# Check if TMP_FOLDER directory NOT exists.
+if [ ! -d "$TMP_FOLDER" ]; then
+        logline "Check if TMP_FOLDER exists " false
+	$MKDIR_COMMAND -p $TMP_FOLDER
+	if [ "$?" != "0" ]; then
+        	logline "TMP_FOLDER was NOT created " false
+		error 21
+	else
+        	logline "TMP_FOLDER was now created " true
+	fi
+else
+        logline "Check if TMP_FOLDER exists " true
+fi
+
+# Set ownership to the TMP_FOLDER directory.
+if [ ! -d "$TMP_FOLDER" ]; then
+        logline "TMP_FOLDER does NOT exists " false
+	error 22
+else
+        logline "Set required ownership to TMP_FOLDER " true
+	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $TMP_FOLDER
+	if [ "$?" != "0" ]; then
+        	logline "Required ownership to TMP_FOLDER was NOT set " false
+		error 23
+	else
+        	logline "Required ownership to TMP_FOLDER was set " true
+	fi
+fi
+
 # Check if DIR_BACKUP directory NOT exists.
 if [ ! -d "$DIR_BACKUP" ]; then
         logline "Check if DIR_BACKUP exists " false
 	$MKDIR_COMMAND -p $DIR_BACKUP
 	if [ "$?" != "0" ]; then
         	logline "DIR_BACKUP was NOT created " false
-		error 21
+		error 24
 	else
         	logline "DIR_BACKUP was now created " true
 	fi
