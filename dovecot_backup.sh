@@ -8,7 +8,7 @@
 #               will be send by e-mail.                                      #
 #                                                                            #
 # Last update : 21.02.2021                                                   #
-# Version     : 1.15                                                         #
+# Version     : 1.16                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -21,7 +21,7 @@
 #  | (at your option) any later version.                                  |  #
 #  +----------------------------------------------------------------------+  #
 #                                                                            #
-# Copyright (c) 2020 by Klaus Tachtler.                                      #
+# Copyright (c) 2021 by Klaus Tachtler.                                      #
 #                                                                            #
 ##############################################################################
 
@@ -126,6 +126,9 @@
 #               script.                                                      #
 #               Thanks to LarsBel.                                           #
 # -------------------------------------------------------------------------- #
+# Version     : 1.16                                                         #
+# Description : Optimize ownership settings for TMP_FOLDER and DIR_BACKUP.   #
+# -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
 # -------------------------------------------------------------------------- #
@@ -186,6 +189,7 @@ CHMOD_COMMAND=`command -v chmod`
 MKTEMP_COMMAND=`command -v mktemp`
 GREP_COMMAND=`command -v grep`
 MV_COMMAND=`command which mv`
+STAT_COMMAND=`command -v stat`
 FILE_LOCK='/tmp/'$SCRIPT_NAME'.lock'
 FILE_LOG='/var/log/'$SCRIPT_NAME'.log'
 FILE_LAST_LOG='/tmp/'$SCRIPT_NAME'.log'
@@ -345,6 +349,7 @@ checkcommand $CHMOD_COMMAND
 checkcommand $GREP_COMMAND
 checkcommand $MKTEMP_COMMAND
 checkcommand $MV_COMMAND
+checkcommand $STAT_COMMAND
 checkcommand $PROG_SENDMAIL
 
 # Check if LOCK file NOT exist.
@@ -360,33 +365,46 @@ else
 	error 20
 fi
 
-# Check if TMP_FOLDER directory NOT exists.
+# Check if TMP_FOLDER directory path NOT exists, else create it.
 if [ ! -d "$TMP_FOLDER" ]; then
         logline "Check if TMP_FOLDER exists " false
 	$MKDIR_COMMAND -p $TMP_FOLDER
 	if [ "$?" != "0" ]; then
-        	logline "TMP_FOLDER was NOT created " false
+		logline "Create temporary '$TMP_FOLDER' folder " false
 		error 21
 	else
-        	logline "TMP_FOLDER was now created " true
+		logline "Create temporary '$TMP_FOLDER' folder " true
 	fi
 else
         logline "Check if TMP_FOLDER exists " true
 fi
 
-# Set ownership to the TMP_FOLDER directory.
-if [ ! -d "$TMP_FOLDER" ]; then
-        logline "TMP_FOLDER does NOT exists " false
-	error 22
-else
-        logline "Set required ownership to TMP_FOLDER " true
+# Check if TMP_FOLDER is owned by $MAILDIR_USER.
+if [ "$MAILDIR_USER" != `$STAT_COMMAND -c '%U' $TMP_FOLDER` ]; then
+        logline "Check if TMP_FOLDER owner is $MAILDIR_USER " false
 	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $TMP_FOLDER
 	if [ "$?" != "0" ]; then
-        	logline "Required ownership to TMP_FOLDER was NOT set " false
+        	logline "Set ownership of TMP_FOLDER to $MAILDIR_USER:$MAILDIR_GROUP " false
+		error 22
+	else
+        	logline "Set ownership of TMP_FOLDER to $MAILDIR_USER:$MAILDIR_GROUP " true
+	fi
+else
+        logline "Check if TMP_FOLDER owner is $MAILDIR_USER " true
+fi
+
+# Check if TMP_FOLDER group is $MAILDIR_GROUP.
+if [ "$MAILDIR_GROUP" != `$STAT_COMMAND -c '%G' $TMP_FOLDER` ]; then
+        logline "Check if TMP_FOLDER group is $MAILDIR_GROUP " false
+	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $TMP_FOLDER
+	if [ "$?" != "0" ]; then
+        	logline "Set ownership of TMP_FOLDER to $MAILDIR_USER:$MAILDIR_GROUP " false
 		error 23
 	else
-        	logline "Required ownership to TMP_FOLDER was set " true
+        	logline "Set ownership of TMP_FOLDER to $MAILDIR_USER:$MAILDIR_GROUP " true
 	fi
+else
+        logline "Check if TMP_FOLDER group is $MAILDIR_GROUP " true
 fi
 
 # Check if DIR_BACKUP directory NOT exists.
@@ -401,6 +419,34 @@ if [ ! -d "$DIR_BACKUP" ]; then
 	fi
 else
         logline "Check if DIR_BACKUP exists " true
+fi
+
+# Check if DIR_BACKUP is owned by $MAILDIR_USER.
+if [ "$MAILDIR_USER" != `$STAT_COMMAND -c '%U' $DIR_BACKUP` ]; then
+        logline "Check if DIR_BACKUP owner is $MAILDIR_USER " false
+	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_BACKUP
+	if [ "$?" != "0" ]; then
+        	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " false
+		error 25
+	else
+        	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " true
+	fi
+else
+        logline "Check if DIR_BACKUP owner is $MAILDIR_USER " true
+fi
+
+# Check if DIR_BACKUP group is $MAILDIR_GROUP.
+if [ "$MAILDIR_GROUP" != `$STAT_COMMAND -c '%G' $DIR_BACKUP` ]; then
+        logline "Check if DIR_BACKUP group is $MAILDIR_GROUP " false
+	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_BACKUP
+	if [ "$?" != "0" ]; then
+        	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " false
+		error 26
+	else
+        	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " true
+	fi
+else
+        logline "Check if DIR_BACKUP group is $MAILDIR_GROUP " true
 fi
 
 # Check if FILE_USERLIST NOT set OR IS empty.
@@ -467,32 +513,25 @@ log ""
 headerblock "Run backup $SCRIPT_NAME "
 log ""
 
-# Check if TMP_FOLDER directory path NOT exists, else create it.
-if [ ! -d "$TMP_FOLDER" ]; then
-        logline "Check if TMP_FOLDER exists " false
-	$MKDIR_COMMAND -p $TMP_FOLDER
-	if [ "$?" != "0" ]; then
-		logline "Create temporary '$TMP_FOLDER' folder " false
-		error 40
-	else
-		logline "Create temporary '$TMP_FOLDER' folder " true
-	fi
-else
-        logline "Check if TMP_FOLDER exists " true
-fi
-
 # Make temporary directory DIR_TEMP inside TMP_FOLDER.
 DIR_TEMP=$($MKTEMP_COMMAND -d -p $TMP_FOLDER -t $SCRIPT_NAME-XXXXXXXXXXXX)
 if [ "$?" != "0" ]; then
 	logline "Create temporary '$DIR_TEMP' folder " false
-	error 41
+	error 40
 else
 	logline "Create temporary '$DIR_TEMP' folder " true
 	log ""
 fi
 
-# Set rights permissions to DIR_TEMP.
+# Set ownership to DIR_TEMP.
 $CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_TEMP
+if [ "$?" != "0" ]; then
+       	logline "Set ownership of DIR_TEMP to $MAILDIR_USER:$MAILDIR_GROUP " false
+	error 41
+else
+       	logline "Set ownership of DIR_TEMP to $MAILDIR_USER:$MAILDIR_GROUP " true
+	log ""
+fi
 
 # Start real backup process for all users.
 for users in "${VAR_LISTED_USER[@]}"; do
@@ -570,10 +609,33 @@ else
 	log ""
 fi
 
-# Set owner and rights permissions to backup directory and backup files.
+# Set ownership to backup directory, again.
 $CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_BACKUP
+if [ "$?" != "0" ]; then
+       	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " false
+	error 43
+else
+       	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " true
+fi
+
+# Set rights permissions to backup directory and backup files.
 $CHMOD_COMMAND 700 $DIR_BACKUP
+if [ "$?" != "0" ]; then
+       	logline "Set permission of DIR_BACKUP to drwx------ " false
+	error 44
+else
+       	logline "Set permission of DIR_BACKUP to drwx------ " true
+fi
+
+# Set rights permissions to backup files.
 $CHMOD_COMMAND -R 600 $DIR_BACKUP/*
+if [ "$?" != "0" ]; then
+       	logline "Set file permissions in DIR_BACKUP to -rw------- " false
+	error 45
+else
+       	logline "Set file permissions in DIR_BACKUP to -rw------- " true
+	log ""
+fi
 
 # Delete LOCK file.
 if [ "$?" != "0" ]; then
