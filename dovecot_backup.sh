@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 21.02.2021                                                   #
-# Version     : 1.16                                                         #
+# Last update : 26.04.2021                                                   #
+# Version     : 1.17                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -129,6 +129,13 @@
 # Version     : 1.16                                                         #
 # Description : Optimize ownership settings for TMP_FOLDER and DIR_BACKUP.   #
 # -------------------------------------------------------------------------- #
+# Version     : 1.17                                                         #
+# Description : GitHub: Issue #22.                                           #
+#               Bugfix - movelog does not work properly when an email is to  #
+#               be sent due to an error, or a status email has been          #
+#               requested.                                                   #
+#               Thanks to selbitschka.                                       #
+# -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
 # -------------------------------------------------------------------------- #
@@ -166,7 +173,7 @@ FILE_USERLIST=''
 FILE_USERLIST_VALIDATE_EMAIL='N'
 
 # CUSTOM - Mail-Recipient.
-MAIL_RECIPIENT='you@example.com'
+MAIL_RECIPIENT='root@tachtler.net'
 
 # CUSTOM - Status-Mail [Y|N].
 MAIL_STATUS='N'
@@ -669,17 +676,18 @@ log ""
 headerblock "Finished creating the backups [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%z)'`]"
 log ""
 
-# Move the log to the permanent log file.
-movelog
-
 # If errors occurred on user backups, exit with return code 1 instead of 0.
 if [ "$VAR_COUNT_FAIL" -gt "0" ]; then
         sendmail ERROR
+	# Move the log to the permanent log file.
+	movelog
 	exit 1
 else
 	# Status e-mail.
 	if [ $MAIL_STATUS = 'Y' ]; then
         	sendmail STATUS
 	fi
+	# Move the log to the permanent log file.
+	movelog
 	exit 0
 fi
