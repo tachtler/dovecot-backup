@@ -47,7 +47,7 @@ MAILDIR_USER='vmail'
 MAILDIR_GROUP='vmail'
 
 # CUSTOM - Path and file name of a file with e-mail addresses to backup, if
-# SET. If NOT, the script will determine all mailboxes by default.
+#          SET. If NOT, the script will determine all mailboxes by default.
 # FILE_USERLIST='/path/and/file/name/of/user/list/with/one/user/per/line'
 # - OR -
 # FILE_USERLIST=''
