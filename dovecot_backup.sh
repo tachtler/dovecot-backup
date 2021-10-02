@@ -364,7 +364,7 @@ log ""
 if [[ $COMPRESSION != 'zst' && $COMPRESSION != 'gz' ]]; then
 	logline "Check compression extension" false
 	log ""
-	log "ERROR: Compression extension $COMPRESSION unsupported: choose between zst and gz"
+	log "ERROR: Compression extension $COMPRESSION unsupported: choose between gz and zst"
 	log ""
 	error 19
 fi
