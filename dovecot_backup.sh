@@ -7,7 +7,7 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 02.10.2021                                                   #
+# Last update : 30.10.2022                                                   #
 # Version     : 1.18                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
@@ -17,11 +17,11 @@
 #  +----------------------------------------------------------------------+  #
 #  | This program is free software; you can redistribute it and/or modify |  #
 #  | it under the terms of the GNU General Public License as published by |  #
-#  | the Free Software Foundation; either version 2 of the License, or    |  #
+#  | the Free Software Foundation; either version 3 of the License, or    |  #
 #  | (at your option) any later version.                                  |  #
 #  +----------------------------------------------------------------------+  #
 #                                                                            #
-# Copyright (c) 2021 by Klaus Tachtler.                                      #
+# Copyright (c) 2022 by Klaus Tachtler.                                      #
 #                                                                            #
 ##############################################################################
 
@@ -75,7 +75,7 @@
 # -------------------------------------------------------------------------- #
 # Version     : 1.08                                                         #
 # Description : GitHub Issue #9                                              #
-#               Add ability to only backup specific mailboxes, by using the  #
+#               Add ability to only backup specific mailboxes, by using the  # 
 #               variable FILE_USERLIST with the file path and file name as   #
 #               content. The file must contain one e-mail address per line.  #
 #               Add the calculation of the script runtime.                   #
@@ -137,13 +137,9 @@
 #               Thanks to selbitschka.                                       #
 # -------------------------------------------------------------------------- #
 # Version     : 1.18                                                         #
-# Description : Introduction of zstd compression as an alternative choice to #
-#               gzip compression. So now by setting the variable COMPRESSION #
-#               the type of compression can be selected between zst and gz.  #
-#               The zstd compression can lower the execution time by half.   #
-#               The design of the code was also revised.                     #
-#               The error handling was also been improved.                   #
-#               Thanks to Marco De Lellis.                                   #
+# Description : GitHub: Issue #24                                            #
+#               Correct the license mismatch between GitHub and the script.  #
+#               Thanks to David Haerdeman (Alphix).                          #
 # -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
@@ -157,14 +153,11 @@
 # CUSTOM - Script-Name.
 SCRIPT_NAME='dovecot_backup'
 
-# CUSTOM - Backup-Files compression method - (possible values: gz zst).
-COMPRESSION='gz'
-
 # CUSTOM - Backup-Files.
 TMP_FOLDER='/srv/backup'
 DIR_BACKUP='/srv/backup'
-FILE_BACKUP=dovecot_backup_`date '+%Y%m%d_%H%M%S'`.tar.$COMPRESSION
-FILE_DELETE=$(printf '*.tar.%s' $COMPRESSION)
+FILE_BACKUP=dovecot_backup_`date '+%Y%m%d_%H%M%S'`.tar.gz
+FILE_DELETE='*.tar.gz'
 BACKUPFILES_DELETE=14
 
 # CUSTOM - dovecot Folders.
@@ -197,8 +190,6 @@ MAIL_STATUS='N'
 # Variables.
 DSYNC_COMMAND=`command -v dsync`
 TAR_COMMAND=`command -v tar`
-GZIP_COMMAND=`command -v gzip`
-ZSTD_COMMAND=`command -v zstd`
 TOUCH_COMMAND=`command -v touch`
 RM_COMMAND=`command -v rm`
 PROG_SENDMAIL=`command -v sendmail`
@@ -226,49 +217,49 @@ VAR_COUNT_FAIL=0
 
 # Functions.
 function log() {
-	echo $1
-	echo `$DATE_COMMAND '+%Y/%m/%d %H:%M:%S'` " INFO:" $1 >>${FILE_LAST_LOG}
+        echo $1
+        echo `$DATE_COMMAND '+%Y/%m/%d %H:%M:%S'` " INFO:" $1 >>${FILE_LAST_LOG}
 }
 
 function retval() {
 if [ "$?" != "0" ]; then
-	case "$?" in
-	*)
-		log "ERROR: Unknown error $?"
-	;;
-	esac
+        case "$?" in
+        *)
+                log "ERROR: Unknown error $?"
+        ;;
+        esac
 fi
 }
 
 function movelog() {
 	$CAT_COMMAND $FILE_LAST_LOG >> $FILE_LOG
-	$RM_COMMAND -f $FILE_LAST_LOG
+	$RM_COMMAND -f $FILE_LAST_LOG	
 	$RM_COMMAND -f $FILE_LOCK
 }
 
 function sendmail() {
-	case "$1" in
-	'STATUS')
-		MAIL_SUBJECT='Status execution '$SCRIPT_NAME' script.'
-	;;
-	*)
-		MAIL_SUBJECT='ERROR while execution '$SCRIPT_NAME' script !!!'
-	;;
-	esac
+        case "$1" in
+        'STATUS')
+                MAIL_SUBJECT='Status execution '$SCRIPT_NAME' script.'
+        ;;
+        *)
+                MAIL_SUBJECT='ERROR while execution '$SCRIPT_NAME' script !!!'
+        ;;
+        esac
 
-	$CAT_COMMAND <<-MAIL >$FILE_MAIL
-	Subject: $MAIL_SUBJECT
-	Date: $VAR_EMAILDATE
-	From: $VAR_SENDER
-	To: $MAIL_RECIPIENT
+$CAT_COMMAND <<MAIL >$FILE_MAIL
+Subject: $MAIL_SUBJECT
+Date: $VAR_EMAILDATE
+From: $VAR_SENDER
+To: $MAIL_RECIPIENT
 
-	MAIL
+MAIL
 
-	$CAT_COMMAND $FILE_LAST_LOG >> $FILE_MAIL
+$CAT_COMMAND $FILE_LAST_LOG >> $FILE_MAIL
 
-	$PROG_SENDMAIL -f $VAR_SENDER -t $MAIL_RECIPIENT < $FILE_MAIL
+$PROG_SENDMAIL -f $VAR_SENDER -t $MAIL_RECIPIENT < $FILE_MAIL
 
-	$RM_COMMAND -f $FILE_MAIL
+$RM_COMMAND -f $FILE_MAIL
 
 }
 
@@ -276,7 +267,7 @@ function error () {
 	# Parameters.
 	CODE_ERROR="$1"
 
-	sendmail ERROR
+        sendmail ERROR
 	movelog
 	exit $CODE_ERROR
 }
@@ -286,10 +277,10 @@ function headerblock () {
 	TEXT_INPUT="$1"
 	LINE_COUNT=68
 
-	# Help variables.
-	WORD_COUNT=`echo $TEXT_INPUT | wc -c`
-	CHAR_AFTER=`expr $LINE_COUNT - $WORD_COUNT - 5`
-	LINE_SPACE=`expr $LINE_COUNT - 3`
+        # Help variables.
+        WORD_COUNT=`echo $TEXT_INPUT | wc -c`
+        CHAR_AFTER=`expr $LINE_COUNT - $WORD_COUNT - 5`
+        LINE_SPACE=`expr $LINE_COUNT - 3`
 
 	# Format placeholder.
 	if [ "$CHAR_AFTER" -lt "0" ]; then
@@ -310,9 +301,9 @@ function logline () {
 	TRUE_FALSE="$2"
 	LINE_COUNT=68
 
-	# Help variables.
-	WORD_COUNT=`echo $TEXT_INPUT | wc -c`
-	CHAR_AFTER=`expr $LINE_COUNT - $WORD_COUNT - 9`
+        # Help variables.
+        WORD_COUNT=`echo $TEXT_INPUT | wc -c`
+        CHAR_AFTER=`expr $LINE_COUNT - $WORD_COUNT - 9`
 
 	# Format placeholder.
 	if [ "$CHAR_AFTER" -lt "0" ]; then
@@ -330,14 +321,13 @@ function logline () {
 
 function checkcommand () {
 	# Parameters.
-	TEXT_VARIABLE="$1"
-	CHECK_COMMAND="$2"
+        CHECK_COMMAND="$1"
 
-	if [ ! -s "$2" ]; then
-		logline "Check if command '$TEXT_VARIABLE'|'$CHECK_COMMAND' was found " false
+	if [ ! -s "$1" ]; then
+		logline "Check if command '$CHECK_COMMAND' was found " false
 		error 10
 	else
-		logline "Check if command '$TEXT_VARIABLE'|'$CHECK_COMMAND' was found " true
+		logline "Check if command '$CHECK_COMMAND' was found " true
 	fi
 }
 
@@ -347,8 +337,6 @@ RUN_TIMESTAMP=`$DATE_COMMAND '+%s'`
 headerblock "Start backup of the mailboxes [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%z)'`]"
 log ""
 log "SCRIPT_NAME.................: $SCRIPT_NAME"
-log ""
-log "COMPRESSION.................: $COMPRESSION"
 log ""
 log "TMP_FOLDER..................: $TMP_FOLDER"
 log "DIR_BACKUP..................: $DIR_BACKUP"
@@ -360,187 +348,170 @@ log "FILE_USERLIST...............: $FILE_USERLIST"
 log "FILE_USERLIST_VALIDATE_EMAIL: $FILE_USERLIST_VALIDATE_EMAIL"
 log ""
 
-# Check if compress extension is allowed.
-if [[ $COMPRESSION != 'zst' && $COMPRESSION != 'gz' ]]; then
-	logline "Check compression extension" false
-	log ""
-	log "ERROR: Compression extension $COMPRESSION unsupported: choose between gz and zst"
-	log ""
-	error 19
-fi
-
 # Check if command (file) NOT exist OR IS empty.
-checkcommand 'dsync' $DSYNC_COMMAND 
-checkcommand 'tar' $TAR_COMMAND
-checkcommand 'touch' $TOUCH_COMMAND
-checkcommand 'rm' $RM_COMMAND
-checkcommand 'cat' $CAT_COMMAND
-checkcommand 'date' $DATE_COMMAND
-checkcommand 'mkdir' $MKDIR_COMMAND
-checkcommand 'chown' $CHOWN_COMMAND
-checkcommand 'chmod' $CHMOD_COMMAND
-checkcommand 'grep' $GREP_COMMAND
-checkcommand 'mktemp' $MKTEMP_COMMAND
-checkcommand 'mv' $MV_COMMAND
-checkcommand 'stat' $STAT_COMMAND
-checkcommand 'sendmail' $PROG_SENDMAIL
-
-if [ $COMPRESSION = 'gz' ]; then
-	checkcommand 'gzip' $GZIP_COMMAND
-fi
-
-if [ $COMPRESSION = 'zst' ]; then
-	checkcommand 'zstd' $ZSTD_COMMAND
-fi
+checkcommand $DSYNC_COMMAND
+checkcommand $TAR_COMMAND
+checkcommand $TOUCH_COMMAND
+checkcommand $RM_COMMAND
+checkcommand $CAT_COMMAND
+checkcommand $DATE_COMMAND
+checkcommand $MKDIR_COMMAND
+checkcommand $CHOWN_COMMAND
+checkcommand $CHMOD_COMMAND
+checkcommand $GREP_COMMAND
+checkcommand $MKTEMP_COMMAND
+checkcommand $MV_COMMAND
+checkcommand $STAT_COMMAND
+checkcommand $PROG_SENDMAIL
 
 # Check if LOCK file NOT exist.
 if [ ! -e "$FILE_LOCK" ]; then
-	logline "Check if the script is NOT already runnig " true
+        logline "Check if the script is NOT already runnig " true
 
-	$TOUCH_COMMAND $FILE_LOCK
+        $TOUCH_COMMAND $FILE_LOCK
 else
-	logline "Check if the script is NOT already runnig " false
-	log ""
-	log "ERROR: The script was already running, or LOCK file already exists!"
-	log ""
+        logline "Check if the script is NOT already runnig " false
+        log ""
+        log "ERROR: The script was already running, or LOCK file already exists!"
+        log ""
 	error 20
 fi
 
 # Check if TMP_FOLDER directory path NOT exists, else create it.
 if [ ! -d "$TMP_FOLDER" ]; then
-	logline "Check if TMP_FOLDER exists " false
+        logline "Check if TMP_FOLDER exists " false
 	$MKDIR_COMMAND -p $TMP_FOLDER
-if [ "$?" != "0" ]; then
-	logline "Create temporary '$TMP_FOLDER' folder " false
-	error 21
+	if [ "$?" != "0" ]; then
+		logline "Create temporary '$TMP_FOLDER' folder " false
+		error 21
+	else
+		logline "Create temporary '$TMP_FOLDER' folder " true
+	fi
 else
-	logline "Create temporary '$TMP_FOLDER' folder " true
-fi
-else
-	logline "Check if TMP_FOLDER exists " true
+        logline "Check if TMP_FOLDER exists " true
 fi
 
 # Check if TMP_FOLDER is owned by $MAILDIR_USER.
 if [ "$MAILDIR_USER" != `$STAT_COMMAND -c '%U' $TMP_FOLDER` ]; then
-	logline "Check if TMP_FOLDER owner is $MAILDIR_USER " false
+        logline "Check if TMP_FOLDER owner is $MAILDIR_USER " false
 	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $TMP_FOLDER
-if [ "$?" != "0" ]; then
-	logline "Set ownership of TMP_FOLDER to $MAILDIR_USER:$MAILDIR_GROUP " false
-	error 22
+	if [ "$?" != "0" ]; then
+        	logline "Set ownership of TMP_FOLDER to $MAILDIR_USER:$MAILDIR_GROUP " false
+		error 22
+	else
+        	logline "Set ownership of TMP_FOLDER to $MAILDIR_USER:$MAILDIR_GROUP " true
+	fi
 else
-	logline "Set ownership of TMP_FOLDER to $MAILDIR_USER:$MAILDIR_GROUP " true
-fi
-else
-	logline "Check if TMP_FOLDER owner is $MAILDIR_USER " true
+        logline "Check if TMP_FOLDER owner is $MAILDIR_USER " true
 fi
 
 # Check if TMP_FOLDER group is $MAILDIR_GROUP.
 if [ "$MAILDIR_GROUP" != `$STAT_COMMAND -c '%G' $TMP_FOLDER` ]; then
-	logline "Check if TMP_FOLDER group is $MAILDIR_GROUP " false
+        logline "Check if TMP_FOLDER group is $MAILDIR_GROUP " false
 	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $TMP_FOLDER
-if [ "$?" != "0" ]; then
-	logline "Set ownership of TMP_FOLDER to $MAILDIR_USER:$MAILDIR_GROUP " false
-	error 23
+	if [ "$?" != "0" ]; then
+        	logline "Set ownership of TMP_FOLDER to $MAILDIR_USER:$MAILDIR_GROUP " false
+		error 23
+	else
+        	logline "Set ownership of TMP_FOLDER to $MAILDIR_USER:$MAILDIR_GROUP " true
+	fi
 else
-	logline "Set ownership of TMP_FOLDER to $MAILDIR_USER:$MAILDIR_GROUP " true
-fi
-else
-	logline "Check if TMP_FOLDER group is $MAILDIR_GROUP " true
+        logline "Check if TMP_FOLDER group is $MAILDIR_GROUP " true
 fi
 
 # Check if DIR_BACKUP directory NOT exists, else create it.
 if [ ! -d "$DIR_BACKUP" ]; then
-	logline "Check if DIR_BACKUP exists " false
+        logline "Check if DIR_BACKUP exists " false
 	$MKDIR_COMMAND -p $DIR_BACKUP
-if [ "$?" != "0" ]; then
-	logline "Create backup '$DIR_BACKUP' folder " false
-	error 24
+	if [ "$?" != "0" ]; then
+		logline "Create backup '$DIR_BACKUP' folder " false
+		error 24
+	else
+		logline "Create backup '$DIR_BACKUP' folder " true
+	fi
 else
-	logline "Create backup '$DIR_BACKUP' folder " true
-fi
-else
-	logline "Check if DIR_BACKUP exists " true
+        logline "Check if DIR_BACKUP exists " true
 fi
 
 # Check if DIR_BACKUP is owned by $MAILDIR_USER.
 if [ "$MAILDIR_USER" != `$STAT_COMMAND -c '%U' $DIR_BACKUP` ]; then
-	logline "Check if DIR_BACKUP owner is $MAILDIR_USER " false
+        logline "Check if DIR_BACKUP owner is $MAILDIR_USER " false
 	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_BACKUP
-if [ "$?" != "0" ]; then
-	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " false
-	error 25
+	if [ "$?" != "0" ]; then
+        	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " false
+		error 25
+	else
+        	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " true
+	fi
 else
-	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " true
-fi
-else
-	logline "Check if DIR_BACKUP owner is $MAILDIR_USER " true
+        logline "Check if DIR_BACKUP owner is $MAILDIR_USER " true
 fi
 
 # Check if DIR_BACKUP group is $MAILDIR_GROUP.
 if [ "$MAILDIR_GROUP" != `$STAT_COMMAND -c '%G' $DIR_BACKUP` ]; then
-	logline "Check if DIR_BACKUP group is $MAILDIR_GROUP " false
+        logline "Check if DIR_BACKUP group is $MAILDIR_GROUP " false
 	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_BACKUP
-if [ "$?" != "0" ]; then
-	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " false
-	error 26
+	if [ "$?" != "0" ]; then
+        	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " false
+		error 26
+	else
+        	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " true
+	fi
 else
-	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " true
-fi
-else
-	logline "Check if DIR_BACKUP group is $MAILDIR_GROUP " true
+        logline "Check if DIR_BACKUP group is $MAILDIR_GROUP " true
 fi
 
 # Check if FILE_USERLIST NOT set OR IS empty.
 log ""
 if [ ! -n "$FILE_USERLIST"  ]; then
-	log "Check if the variable FILE_USERLIST is set ................[  NO  ]"
-	log "Mailboxes to backup will be determined by doveadm user \"*\"."
+        log "Check if the variable FILE_USERLIST is set ................[  NO  ]"
+        log "Mailboxes to backup will be determined by doveadm user \"*\"."
 
-for users in `doveadm user "*"`; do
-	VAR_LISTED_USER+=($users);
-done
+	for users in `doveadm user "*"`; do
+		VAR_LISTED_USER+=($users);
+	done
 else
-	logline "Check if the variable FILE_USERLIST is set " true
-	log "Mailboxes to backup will be read from file."
-	log ""
-	log "- File: [$FILE_USERLIST]"
+        logline "Check if the variable FILE_USERLIST is set " true
+        log "Mailboxes to backup will be read from file."
+        log ""
+        log "- File: [$FILE_USERLIST]"
 
-# Check if file exists.
-if [ -f "$FILE_USERLIST" ]; then
-	logline "- Check if FILE_USERLIST exists " true
-else
-	logline "- Check if FILE_USERLIST exists " false
-	log ""
-	error 30
-fi
-
-# Check if file is readable.
-if [ -r "$FILE_USERLIST" ]; then
-	logline "- Check if FILE_USERLIST is readable " true
-else
-	logline "- Check if FILE_USERLIST is readable " false
-	log ""
-	error 31
-fi
-
-# Read file into variable.
-while IFS= read -r line
-do
-	# Check for valid e-mail address.
-	if [ $FILE_USERLIST_VALIDATE_EMAIL = 'Y' ]; then
-		# Check if basic email address syntax is valid.
-		if echo "${line}" | $GREP_COMMAND '^[a-zA-Z0-9.-]*@[a-zA-Z0-9.-]*\.[a-zA-Z0-9]*$' >/dev/null; then
-			VAR_LISTED_USER+=($line);
-		else
-			log ""
-			log "ERROR: The user: $line is NOT valid e-mail address!"
-
-			((VAR_COUNT_FAIL++))
-			VAR_FAILED_USER+=($line);
-		fi
+	# Check if file exists.
+	if [ -f "$FILE_USERLIST" ]; then
+        	logline "- Check if FILE_USERLIST exists " true
 	else
-		VAR_LISTED_USER+=($line);
+        	logline "- Check if FILE_USERLIST exists " false
+        	log ""
+		error 30
 	fi
+
+	# Check if file is readable.
+	if [ -r "$FILE_USERLIST" ]; then
+        	logline "- Check if FILE_USERLIST is readable " true
+	else
+        	logline "- Check if FILE_USERLIST is readable " false
+        	log ""
+		error 31
+	fi
+
+	# Read file into variable.
+	while IFS= read -r line
+	do	
+		# Check for valid e-mail address.
+		if [ $FILE_USERLIST_VALIDATE_EMAIL = 'Y' ]; then
+			# Check if basic email address syntax is valid.
+			if echo "${line}" | $GREP_COMMAND '^[a-zA-Z0-9.-]*@[a-zA-Z0-9.-]*\.[a-zA-Z0-9]*$' >/dev/null; then
+				VAR_LISTED_USER+=($line);
+			else
+        			log ""
+		        	log "ERROR: The user: $line is NOT valid e-mail address!"
+
+	                	((VAR_COUNT_FAIL++))
+	                	VAR_FAILED_USER+=($line);
+			fi
+		else
+			VAR_LISTED_USER+=($line);
+		fi
 	done <"$FILE_USERLIST"
 
 	# Check if VAR_COUNT_FAIL is greater than zero. If YES, set VAR_COUNT_USER to VAR_COUNT_FAIL.
@@ -567,10 +538,10 @@ fi
 # Set ownership to DIR_TEMP.
 $CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_TEMP
 if [ "$?" != "0" ]; then
-	logline "Set ownership of DIR_TEMP to $MAILDIR_USER:$MAILDIR_GROUP " false
+       	logline "Set ownership of DIR_TEMP to $MAILDIR_USER:$MAILDIR_GROUP " false
 	error 41
 else
-	logline "Set ownership of DIR_TEMP to $MAILDIR_USER:$MAILDIR_GROUP " true
+       	logline "Set ownership of DIR_TEMP to $MAILDIR_USER:$MAILDIR_GROUP " true
 	log ""
 fi
 
@@ -602,27 +573,27 @@ for users in "${VAR_LISTED_USER[@]}"; do
 		((VAR_COUNT_FAIL++))
 		VAR_FAILED_USER+=($users);
 	else
-		log "Synchronization done for user: $users ..."
+        	log "Synchronization done for user: $users ..."
 
 		cd $DIR_TEMP
 
 		log "Packaging to archive for user: $users ..."
-		$TAR_COMMAND -acvf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
+		$TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
 
 		log "Delete mailbox files for user: $users ..."
 		$RM_COMMAND "$DIR_TEMP/$DOMAINPART" -rf
 		if [ "$?" != "0" ]; then
-			logline "Delete mailbox files at: $DIR_TEMP " false
+        		logline "Delete mailbox files at: $DIR_TEMP " false
 		else
-			logline "Delete mailbox files at: $DIR_TEMP " true
+        		logline "Delete mailbox files at: $DIR_TEMP " true
 		fi
 
 		log "Copying archive file for user: $users ..."
 		$MV_COMMAND "$DIR_TEMP/$users-$FILE_BACKUP" "$DIR_BACKUP"
 		if [ "$?" != "0" ]; then
-			logline "Move archive file for user to: $DIR_BACKUP " false
+        		logline "Move archive file for user to: $DIR_BACKUP " false
 		else
-			logline "Move archive file for user to: $DIR_BACKUP " true
+        		logline "Move archive file for user to: $DIR_BACKUP " true
 		fi
 
 		cd $DIR_BACKUP
@@ -630,14 +601,14 @@ for users in "${VAR_LISTED_USER[@]}"; do
 		log "Delete archive files for user: $users ..."
 		(ls -t $users-$FILE_DELETE|head -n $BACKUPFILES_DELETE;ls $users-$FILE_DELETE)|sort|uniq -u|xargs -r rm
 		if [ "$?" != "0" ]; then
-			logline "Delete old archive files from: $DIR_BACKUP " false
+        		logline "Delete old archive files from: $DIR_BACKUP " false
 		else
-			logline "Delete old archive files from: $DIR_BACKUP " true
+        		logline "Delete old archive files from: $DIR_BACKUP " true
 		fi
 	fi
 
 	log "Ended backup process for user: $users ..."
-	log ""
+        log ""
 done
 
 # Delete the temporary folder DIR_TEMP.
@@ -653,40 +624,40 @@ fi
 # Set ownership to backup directory, again.
 $CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_BACKUP
 if [ "$?" != "0" ]; then
-	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " false
+       	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " false
 	error 43
 else
-	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " true
+       	logline "Set ownership of DIR_BACKUP to $MAILDIR_USER:$MAILDIR_GROUP " true
 fi
 
 # Set rights permission to backup directory.
 $CHMOD_COMMAND 700 $DIR_BACKUP
 if [ "$?" != "0" ]; then
-	logline "Set permission of DIR_BACKUP to drwx------ " false
+       	logline "Set permission of DIR_BACKUP to drwx------ " false
 	error 44
 else
-	logline "Set permission of DIR_BACKUP to drwx------ " true
+       	logline "Set permission of DIR_BACKUP to drwx------ " true
 fi
 
 # Set rights permissions to backup files.
 $CHMOD_COMMAND -R 600 $DIR_BACKUP/*
 if [ "$?" != "0" ]; then
-	logline "Set file permissions in DIR_BACKUP to -rw------- " false
+       	logline "Set file permissions in DIR_BACKUP to -rw------- " false
 	error 45
 else
-	logline "Set file permissions in DIR_BACKUP to -rw------- " true
+       	logline "Set file permissions in DIR_BACKUP to -rw------- " true
 	log ""
 fi
 
 # Delete LOCK file.
 if [ "$?" != "0" ]; then
-	retval $?
-	log ""
-	$RM_COMMAND -f $FILE_LOCK
+        retval $?
+        log ""
+        $RM_COMMAND -f $FILE_LOCK
 	error 99
 else
 	headerblock "End backup $SCRIPT_NAME "
-	log ""
+        log ""
 fi
 
 # Finish syncing with runntime statistics.
@@ -712,14 +683,14 @@ log ""
 
 # If errors occurred on user backups, exit with return code 1 instead of 0.
 if [ "$VAR_COUNT_FAIL" -gt "0" ]; then
-	sendmail ERROR
+        sendmail ERROR
 	# Move the log to the permanent log file.
 	movelog
 	exit 1
 else
 	# Status e-mail.
 	if [ $MAIL_STATUS = 'Y' ]; then
-		sendmail STATUS
+        	sendmail STATUS
 	fi
 	# Move the log to the permanent log file.
 	movelog
