@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ##############################################################################
 # Script-Name : dovecot_backup.sh                                            #
@@ -215,6 +215,20 @@ declare -a VAR_FAILED_USER=()
 VAR_COUNT_USER=0
 VAR_COUNT_FAIL=0
 
+# FreeBSD specific commands
+if [ "$OSTYPE" = "FreeBSD" ]; then
+        STAT_COMMAND_PARAM_FORMAT='-f'
+        STAT_COMMAND_ARG_FORMAT_USER='%Su'
+        STAT_COMMAND_ARG_FORMAT_GROUP='%Sg'
+        MKTEMP_COMMAND_PARAM_ARG="-d ${TMP_FOLDER}/${SCRIPT_NAME}-XXXXXXXXXXXX"
+        DSYNC_COMMAND=`command -v doveadm`
+else
+        STAT_COMMAND_PARAM_FORMAT='-c'
+        STAT_COMMAND_ARG_FORMAT_USER='%U'
+        STAT_COMMAND_ARG_FORMAT_GROUP='%G'
+        MKTEMP_COMMAND_PARAM_ARG="-d -p ${TMP_FOLDER} -t ${SCRIPT_NAME}-XXXXXXXXXXXX"
+fi
+
 # Functions.
 function log() {
         echo $1
@@ -392,7 +406,7 @@ else
 fi
 
 # Check if TMP_FOLDER is owned by $MAILDIR_USER.
-if [ "$MAILDIR_USER" != `$STAT_COMMAND -c '%U' $TMP_FOLDER` ]; then
+if [ "$MAILDIR_USER" != `$STAT_COMMAND $STAT_COMMAND_PARAM_FORMAT "$STAT_COMMAND_ARG_FORMAT_USER" $TMP_FOLDER` ]; then
         logline "Check if TMP_FOLDER owner is $MAILDIR_USER " false
 	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $TMP_FOLDER
 	if [ "$?" != "0" ]; then
@@ -406,7 +420,7 @@ else
 fi
 
 # Check if TMP_FOLDER group is $MAILDIR_GROUP.
-if [ "$MAILDIR_GROUP" != `$STAT_COMMAND -c '%G' $TMP_FOLDER` ]; then
+if [ "$MAILDIR_GROUP" != `$STAT_COMMAND $STAT_COMMAND_PARAM_FORMAT "$STAT_COMMAND_ARG_FORMAT_GROUP" $TMP_FOLDER` ]; then
         logline "Check if TMP_FOLDER group is $MAILDIR_GROUP " false
 	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $TMP_FOLDER
 	if [ "$?" != "0" ]; then
@@ -434,7 +448,7 @@ else
 fi
 
 # Check if DIR_BACKUP is owned by $MAILDIR_USER.
-if [ "$MAILDIR_USER" != `$STAT_COMMAND -c '%U' $DIR_BACKUP` ]; then
+if [ "$MAILDIR_USER" != `$STAT_COMMAND $STAT_COMMAND_PARAM_FORMAT "$STAT_COMMAND_ARG_FORMAT_USER" $DIR_BACKUP` ]; then
         logline "Check if DIR_BACKUP owner is $MAILDIR_USER " false
 	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_BACKUP
 	if [ "$?" != "0" ]; then
@@ -448,7 +462,7 @@ else
 fi
 
 # Check if DIR_BACKUP group is $MAILDIR_GROUP.
-if [ "$MAILDIR_GROUP" != `$STAT_COMMAND -c '%G' $DIR_BACKUP` ]; then
+if [ "$MAILDIR_GROUP" != `$STAT_COMMAND $STAT_COMMAND_PARAM_FORMAT "$STAT_COMMAND_ARG_FORMAT_GROUP" $DIR_BACKUP` ]; then
         logline "Check if DIR_BACKUP group is $MAILDIR_GROUP " false
 	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_BACKUP
 	if [ "$?" != "0" ]; then
@@ -526,7 +540,7 @@ headerblock "Run backup $SCRIPT_NAME "
 log ""
 
 # Make temporary directory DIR_TEMP inside TMP_FOLDER.
-DIR_TEMP=$($MKTEMP_COMMAND -d -p $TMP_FOLDER -t $SCRIPT_NAME-XXXXXXXXXXXX)
+DIR_TEMP=$($MKTEMP_COMMAND $MKTEMP_COMMAND_PARAM_ARG)
 if [ "$?" != "0" ]; then
 	logline "Create temporary '$DIR_TEMP' folder " false
 	error 40
@@ -556,7 +570,12 @@ for users in "${VAR_LISTED_USER[@]}"; do
 	USERPART="$DOMAINPART/$LOCALPART"
 
 	log "Extract mailbox data for user: $users ..."
-	$DSYNC_COMMAND -o plugin/quota= -f -u $users backup $MAILDIR_TYPE:$LOCATION
+
+        if [ "$OSTYPE" = "FreeBSD" ]; then
+	        $DSYNC_COMMAND -o plugin/quota= backup -u $users $MAILDIR_TYPE:$LOCATION
+	else
+		$DSYNC_COMMAND -o plugin/quota= -f -u $users backup $MAILDIR_TYPE:$LOCATION
+	fi
 
 	# Check the status of dsync and continue the script depending on the result.
 	if [ "$?" != "0" ]; then
@@ -578,10 +597,14 @@ for users in "${VAR_LISTED_USER[@]}"; do
 		cd $DIR_TEMP
 
 		log "Packaging to archive for user: $users ..."
-		$TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
+		if [ "$OSTYPE" = "FreeBSD" ]; then
+			$TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART
+		else
+			$TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
+		fi
 
 		log "Delete mailbox files for user: $users ..."
-		$RM_COMMAND "$DIR_TEMP/$DOMAINPART" -rf
+		$RM_COMMAND -rf "$DIR_TEMP/$DOMAINPART"
 		if [ "$?" != "0" ]; then
         		logline "Delete mailbox files at: $DIR_TEMP " false
 		else
@@ -612,7 +635,7 @@ for users in "${VAR_LISTED_USER[@]}"; do
 done
 
 # Delete the temporary folder DIR_TEMP.
-$RM_COMMAND $DIR_TEMP -rf
+$RM_COMMAND -rf $DIR_TEMP
 if [ "$?" != "0" ]; then
 	logline "Delete temporary '$DIR_TEMP' folder " false
 	error 42
@@ -676,7 +699,12 @@ fi
 
 log ""
 END_TIMESTAMP=`$DATE_COMMAND '+%s'`
-log "Runtime: `$DATE_COMMAND -u -d "0 $END_TIMESTAMP seconds - $RUN_TIMESTAMP seconds" +'%H:%M:%S'` time elapsed."
+if [ "$OSTYPE" = "FreeBSD" ]; then
+  DELTA=$((END_TIMESTAMP-RUN_TIMESTAMP))
+  log "$(printf 'Runtime: %02d:%02d:%02d time elapsed.\n' $((DELTA/3600)) $((DELTA%3600/60)) $((DELTA%60)))"
+else
+	log "Runtime: `$DATE_COMMAND -u -d "0 $END_TIMESTAMP seconds - $RUN_TIMESTAMP seconds" +'%H:%M:%S'` time elapsed."
+fi
 log ""
 headerblock "Finished creating the backups [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%z)'`]"
 log ""
