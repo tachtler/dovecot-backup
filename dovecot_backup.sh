@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ##############################################################################
 # Script-Name : dovecot_backup.sh                                            #
@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 30.10.2022                                                   #
-# Version     : 1.18                                                         #
+# Last update : 03.07.2023                                                   #
+# Version     : 1.20                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -21,7 +21,7 @@
 #  | (at your option) any later version.                                  |  #
 #  +----------------------------------------------------------------------+  #
 #                                                                            #
-# Copyright (c) 2022 by Klaus Tachtler.                                      #
+# Copyright (c) 2023 by Klaus Tachtler.                                      #
 #                                                                            #
 ##############################################################################
 
@@ -137,9 +137,23 @@
 #               Thanks to selbitschka.                                       #
 # -------------------------------------------------------------------------- #
 # Version     : 1.18                                                         #
+# Description : Introduction of zstd compression as an alternative choice to #
+#               gzip compression. So now by setting the variable COMPRESSION #
+#               the type of compression can be selected between zst and gz.  #
+#               The zstd compression can lower the execution time by half.   #
+#               The design of the code was also revised.                     #
+#               The error handling was also been improved.                   #
+#               Thanks to Marco De Lellis.                                   #
+# -------------------------------------------------------------------------- #
+# Version     : 1.19                                                         #
 # Description : GitHub: Issue #24                                            #
 #               Correct the license mismatch between GitHub and the script.  #
 #               Thanks to David Haerdeman (Alphix).                          #
+# -------------------------------------------------------------------------- #
+# Version     : 1.20                                                         #
+# Description : GitHub: Pull request #26                                     #
+#               Improved FreeBSD compatibility.                              #
+#               Thanks to wombelix (Dominik Wombacher)                       #
 # -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
@@ -153,11 +167,14 @@
 # CUSTOM - Script-Name.
 SCRIPT_NAME='dovecot_backup'
 
+# CUSTOM - Backup-Files compression method - (possible values: gz zst).
+COMPRESSION='gz'
+
 # CUSTOM - Backup-Files.
 TMP_FOLDER='/srv/backup'
 DIR_BACKUP='/srv/backup'
-FILE_BACKUP=dovecot_backup_`date '+%Y%m%d_%H%M%S'`.tar.gz
-FILE_DELETE='*.tar.gz'
+FILE_BACKUP=dovecot_backup_`date '+%Y%m%d_%H%M%S'`.tar.$COMPRESSION
+FILE_DELETE=$(printf '*.tar.%s' $COMPRESSION)
 BACKUPFILES_DELETE=14
 
 # CUSTOM - dovecot Folders.
@@ -188,8 +205,9 @@ MAIL_STATUS='N'
 ##############################################################################
 
 # Variables.
-DSYNC_COMMAND=`command -v dsync`
 TAR_COMMAND=`command -v tar`
+GZIP_COMMAND=`command -v gzip`
+ZSTD_COMMAND=`command -v zstd`
 TOUCH_COMMAND=`command -v touch`
 RM_COMMAND=`command -v rm`
 PROG_SENDMAIL=`command -v sendmail`
@@ -214,6 +232,21 @@ declare -a VAR_LISTED_USER=()
 declare -a VAR_FAILED_USER=()
 VAR_COUNT_USER=0
 VAR_COUNT_FAIL=0
+
+# FreeBSD specific commands
+if [ "$OSTYPE" = "FreeBSD" ]; then
+        DSYNC_COMMAND=`command -v doveadm`
+        STAT_COMMAND_PARAM_FORMAT='-f'
+        STAT_COMMAND_ARG_FORMAT_USER='%Su'
+        STAT_COMMAND_ARG_FORMAT_GROUP='%Sg'
+        MKTEMP_COMMAND_PARAM_ARG="-d ${TMP_FOLDER}/${SCRIPT_NAME}-XXXXXXXXXXXX"
+else
+	DSYNC_COMMAND=`command -v dsync`
+        STAT_COMMAND_PARAM_FORMAT='-c'
+        STAT_COMMAND_ARG_FORMAT_USER='%U'
+        STAT_COMMAND_ARG_FORMAT_GROUP='%G'
+        MKTEMP_COMMAND_PARAM_ARG="-d -p ${TMP_FOLDER} -t ${SCRIPT_NAME}-XXXXXXXXXXXX"
+fi
 
 # Functions.
 function log() {
@@ -338,6 +371,10 @@ headerblock "Start backup of the mailboxes [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:
 log ""
 log "SCRIPT_NAME.................: $SCRIPT_NAME"
 log ""
+log "OS_TYPE.....................: $OSTYPE"
+log ""
+log "COMPRESSION.................: $COMPRESSION"
+log ""
 log "TMP_FOLDER..................: $TMP_FOLDER"
 log "DIR_BACKUP..................: $DIR_BACKUP"
 log ""
@@ -347,6 +384,15 @@ log ""
 log "FILE_USERLIST...............: $FILE_USERLIST"
 log "FILE_USERLIST_VALIDATE_EMAIL: $FILE_USERLIST_VALIDATE_EMAIL"
 log ""
+
+# Check if compress extension is allowed.
+if [[ $COMPRESSION != 'zst' && $COMPRESSION != 'gz' ]]; then
+        logline "Check compression extension" false
+        log ""
+        log "ERROR: Compression extension $COMPRESSION unsupported: choose between gz and zst"
+        log ""
+        error 19
+fi
 
 # Check if command (file) NOT exist OR IS empty.
 checkcommand $DSYNC_COMMAND
@@ -363,6 +409,14 @@ checkcommand $MKTEMP_COMMAND
 checkcommand $MV_COMMAND
 checkcommand $STAT_COMMAND
 checkcommand $PROG_SENDMAIL
+
+if [ $COMPRESSION = 'gz' ]; then
+        checkcommand $GZIP_COMMAND
+fi
+
+if [ $COMPRESSION = 'zst' ]; then
+        checkcommand $ZSTD_COMMAND
+fi
 
 # Check if LOCK file NOT exist.
 if [ ! -e "$FILE_LOCK" ]; then
@@ -392,7 +446,7 @@ else
 fi
 
 # Check if TMP_FOLDER is owned by $MAILDIR_USER.
-if [ "$MAILDIR_USER" != `$STAT_COMMAND -c '%U' $TMP_FOLDER` ]; then
+if [ "$MAILDIR_USER" != `$STAT_COMMAND $STAT_COMMAND_PARAM_FORMAT "$STAT_COMMAND_ARG_FORMAT_USER" $TMP_FOLDER` ]; then
         logline "Check if TMP_FOLDER owner is $MAILDIR_USER " false
 	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $TMP_FOLDER
 	if [ "$?" != "0" ]; then
@@ -406,7 +460,7 @@ else
 fi
 
 # Check if TMP_FOLDER group is $MAILDIR_GROUP.
-if [ "$MAILDIR_GROUP" != `$STAT_COMMAND -c '%G' $TMP_FOLDER` ]; then
+if [ "$MAILDIR_GROUP" != `$STAT_COMMAND $STAT_COMMAND_PARAM_FORMAT "$STAT_COMMAND_ARG_FORMAT_GROUP" $TMP_FOLDER` ]; then
         logline "Check if TMP_FOLDER group is $MAILDIR_GROUP " false
 	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $TMP_FOLDER
 	if [ "$?" != "0" ]; then
@@ -434,7 +488,7 @@ else
 fi
 
 # Check if DIR_BACKUP is owned by $MAILDIR_USER.
-if [ "$MAILDIR_USER" != `$STAT_COMMAND -c '%U' $DIR_BACKUP` ]; then
+if [ "$MAILDIR_USER" != `$STAT_COMMAND $STAT_COMMAND_PARAM_FORMAT "$STAT_COMMAND_ARG_FORMAT_USER" $DIR_BACKUP` ]; then
         logline "Check if DIR_BACKUP owner is $MAILDIR_USER " false
 	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_BACKUP
 	if [ "$?" != "0" ]; then
@@ -448,7 +502,7 @@ else
 fi
 
 # Check if DIR_BACKUP group is $MAILDIR_GROUP.
-if [ "$MAILDIR_GROUP" != `$STAT_COMMAND -c '%G' $DIR_BACKUP` ]; then
+if [ "$MAILDIR_GROUP" != `$STAT_COMMAND $STAT_COMMAND_PARAM_FORMAT "$STAT_COMMAND_ARG_FORMAT_GROUP" $DIR_BACKUP` ]; then
         logline "Check if DIR_BACKUP group is $MAILDIR_GROUP " false
 	$CHOWN_COMMAND -R $MAILDIR_USER:$MAILDIR_GROUP $DIR_BACKUP
 	if [ "$?" != "0" ]; then
@@ -526,7 +580,7 @@ headerblock "Run backup $SCRIPT_NAME "
 log ""
 
 # Make temporary directory DIR_TEMP inside TMP_FOLDER.
-DIR_TEMP=$($MKTEMP_COMMAND -d -p $TMP_FOLDER -t $SCRIPT_NAME-XXXXXXXXXXXX)
+DIR_TEMP=$($MKTEMP_COMMAND $MKTEMP_COMMAND_PARAM_ARG)
 if [ "$?" != "0" ]; then
 	logline "Create temporary '$DIR_TEMP' folder " false
 	error 40
@@ -556,7 +610,12 @@ for users in "${VAR_LISTED_USER[@]}"; do
 	USERPART="$DOMAINPART/$LOCALPART"
 
 	log "Extract mailbox data for user: $users ..."
-	$DSYNC_COMMAND -o plugin/quota= -f -u $users backup $MAILDIR_TYPE:$LOCATION
+
+        if [ "$OSTYPE" = "FreeBSD" ]; then
+	        $DSYNC_COMMAND -o plugin/quota= backup -u $users $MAILDIR_TYPE:$LOCATION
+	else
+		$DSYNC_COMMAND -o plugin/quota= -f -u $users backup $MAILDIR_TYPE:$LOCATION
+	fi
 
 	# Check the status of dsync and continue the script depending on the result.
 	if [ "$?" != "0" ]; then
@@ -578,10 +637,14 @@ for users in "${VAR_LISTED_USER[@]}"; do
 		cd $DIR_TEMP
 
 		log "Packaging to archive for user: $users ..."
-		$TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
+		if [ "$OSTYPE" = "FreeBSD" ]; then
+			$TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART
+		else
+			$TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
+		fi
 
 		log "Delete mailbox files for user: $users ..."
-		$RM_COMMAND "$DIR_TEMP/$DOMAINPART" -rf
+		$RM_COMMAND -rf "$DIR_TEMP/$DOMAINPART"
 		if [ "$?" != "0" ]; then
         		logline "Delete mailbox files at: $DIR_TEMP " false
 		else
@@ -612,7 +675,7 @@ for users in "${VAR_LISTED_USER[@]}"; do
 done
 
 # Delete the temporary folder DIR_TEMP.
-$RM_COMMAND $DIR_TEMP -rf
+$RM_COMMAND -rf $DIR_TEMP
 if [ "$?" != "0" ]; then
 	logline "Delete temporary '$DIR_TEMP' folder " false
 	error 42
@@ -676,7 +739,12 @@ fi
 
 log ""
 END_TIMESTAMP=`$DATE_COMMAND '+%s'`
-log "Runtime: `$DATE_COMMAND -u -d "0 $END_TIMESTAMP seconds - $RUN_TIMESTAMP seconds" +'%H:%M:%S'` time elapsed."
+if [ "$OSTYPE" = "FreeBSD" ]; then
+        DELTA=$((END_TIMESTAMP-RUN_TIMESTAMP))
+        log "$(printf 'Runtime: %02d:%02d:%02d time elapsed.\n' $((DELTA/3600)) $((DELTA%3600/60)) $((DELTA%60)))"
+else
+	log "Runtime: `$DATE_COMMAND -u -d "0 $END_TIMESTAMP seconds - $RUN_TIMESTAMP seconds" +'%H:%M:%S'` time elapsed."
+fi
 log ""
 headerblock "Finished creating the backups [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%z)'`]"
 log ""
