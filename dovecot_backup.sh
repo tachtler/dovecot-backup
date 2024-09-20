@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 03.07.2023                                                   #
-# Version     : 1.20                                                         #
+# Last update : 20.09.2024                                                   #
+# Version     : 1.21                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -21,7 +21,7 @@
 #  | (at your option) any later version.                                  |  #
 #  +----------------------------------------------------------------------+  #
 #                                                                            #
-# Copyright (c) 2023 by Klaus Tachtler.                                      #
+# Copyright (c) 2024 by Klaus Tachtler.                                      #
 #                                                                            #
 ##############################################################################
 
@@ -155,6 +155,12 @@
 #               Improved FreeBSD compatibility.                              #
 #               Thanks to wombelix (Dominik Wombacher)                       #
 # -------------------------------------------------------------------------- #
+# Version     : 1.21                                                         #
+# Description : GitHub: Issue #27                                            #
+#               Extension for FreeBSD compatibility.                         #
+#               Thanks to ozgurkazancci (Konstantin) and                     #
+#               renaudallard (Renaud Allard)                                 #
+# -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
 # -------------------------------------------------------------------------- #
@@ -225,6 +231,7 @@ FILE_LOG='/var/log/'$SCRIPT_NAME'.log'
 FILE_LAST_LOG='/tmp/'$SCRIPT_NAME'.log'
 FILE_MAIL='/tmp/'$SCRIPT_NAME'.mail'
 FILE_MBOXLIST='/tmp/'$SCRIPT_NAME'.mboxlist'
+VAR_OS=`uname -s`
 VAR_HOSTNAME=`uname -n`
 VAR_SENDER='root@'$VAR_HOSTNAME
 VAR_EMAILDATE=`$DATE_COMMAND '+%a, %d %b %Y %H:%M:%S (%z)'`
@@ -233,8 +240,8 @@ declare -a VAR_FAILED_USER=()
 VAR_COUNT_USER=0
 VAR_COUNT_FAIL=0
 
-# FreeBSD specific commands
-if [ "$OSTYPE" = "FreeBSD" ]; then
+# FreeBSD and OpenBSD specific commands
+if [ "${VAR_OS,,}" = "freebsd" ] || [ "${VAR_OS,,}" = "openbsd" ] ; then
         DSYNC_COMMAND=`command -v doveadm`
         STAT_COMMAND_PARAM_FORMAT='-f'
         STAT_COMMAND_ARG_FORMAT_USER='%Su'
@@ -371,7 +378,7 @@ headerblock "Start backup of the mailboxes [`$DATE_COMMAND '+%a, %d %b %Y %H:%M:
 log ""
 log "SCRIPT_NAME.................: $SCRIPT_NAME"
 log ""
-log "OS_TYPE.....................: $OSTYPE"
+log "OS_TYPE.....................: $VAR_OS"
 log ""
 log "COMPRESSION.................: $COMPRESSION"
 log ""
@@ -611,7 +618,7 @@ for users in "${VAR_LISTED_USER[@]}"; do
 
 	log "Extract mailbox data for user: $users ..."
 
-        if [ "$OSTYPE" = "FreeBSD" ]; then
+        if [ "${VAR_OS,,}" = "freebsd" ] || [ "${VAR_OS,,}" = "openbsd" ] ; then
 	        $DSYNC_COMMAND -o plugin/quota= backup -u $users $MAILDIR_TYPE:$LOCATION
 	else
 		$DSYNC_COMMAND -o plugin/quota= -f -u $users backup $MAILDIR_TYPE:$LOCATION
@@ -637,7 +644,7 @@ for users in "${VAR_LISTED_USER[@]}"; do
 		cd $DIR_TEMP
 
 		log "Packaging to archive for user: $users ..."
-		if [ "$OSTYPE" = "FreeBSD" ]; then
+		if [ "${VAR_OS,,}" = "freebsd" ] || [ "${VAR_OS,,}" = "openbsd" ] ; then
 			$TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART
 		else
 			$TAR_COMMAND -cvzf $users-$FILE_BACKUP $USERPART --atime-preserve --preserve-permissions
@@ -739,7 +746,7 @@ fi
 
 log ""
 END_TIMESTAMP=`$DATE_COMMAND '+%s'`
-if [ "$OSTYPE" = "FreeBSD" ]; then
+if [ "${VAR_OS,,}" = "freebsd" ] || [ "${VAR_OS,,}" = "openbsd" ] ; then
         DELTA=$((END_TIMESTAMP-RUN_TIMESTAMP))
         log "$(printf 'Runtime: %02d:%02d:%02d time elapsed.\n' $((DELTA/3600)) $((DELTA%3600/60)) $((DELTA%60)))"
 else
