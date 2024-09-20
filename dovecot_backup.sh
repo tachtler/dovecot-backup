@@ -157,7 +157,7 @@
 # -------------------------------------------------------------------------- #
 # Version     : 1.21                                                         #
 # Description : GitHub: Issue #27                                            #
-#               Extension for FreeBSD compatibility.                         #
+#               Extension for OpenBSD compatibility.                         #
 #               Thanks to ozgurkazancci (Konstantin) and                     #
 #               renaudallard (Renaud Allard)                                 #
 # -------------------------------------------------------------------------- #
