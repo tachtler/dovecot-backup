@@ -1,6 +1,10 @@
 # dovecot-backup
 This is a shell script for saving up all emails from the mailboxes of Dovecot (MDA) to an email mailbox specific archive file in ``tar.gz`` **or** ``tar.zst`` format.
 
+**Starting with dovecot_backup version 1.22, Dovecot version 2.4 or higher is required.**
+
+For **Dovecot version 2.3, a separate branch called Dovecot-2.3 is available** and should be used.
+
 This simple bash/shell script save the emails
 - **DEFAULT** from all mailboxes/user accounts, determined with ``doveadm user "*"``
 - **OR** only from these mailboxes/user accounts, which are stored in a file.
