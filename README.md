@@ -3,7 +3,10 @@ This is a shell script for saving up all emails from the mailboxes of Dovecot (M
 
 **Starting with dovecot_backup version 1.22, Dovecot version 2.4 or higher is required.**
 
-For **Dovecot version 2.3, a separate branch called Dovecot-2.3 is available** and should be used.
+For **Dovecot version 2.3, a separate branch called Dovecot-2.3 is available** under
+ - https://github.com/tachtler/dovecot-backup/tree/Dovecot-2.3
+
+and should be used.
 
 This simple bash/shell script save the emails
 - **DEFAULT** from all mailboxes/user accounts, determined with ``doveadm user "*"``
