@@ -38,7 +38,7 @@ Full description of **all** the parameter to set **to get the script to work**, 
 SCRIPT_NAME='dovecot_backup'
 
 # CUSTOM - Backup-Files compression method - (possible values: gz zst).
-COMPRESSION='gz'
+COMPRESSION='zst'
 
 # CUSTOM - Backup-Files.
 TMP_FOLDER='/srv/backup'
