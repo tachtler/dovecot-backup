@@ -7,8 +7,8 @@
 #               On error while execution, a LOG file and a error message     #
 #               will be send by e-mail.                                      #
 #                                                                            #
-# Last update : 25.01.2026                                                   #
-# Version     : 1.23                                                         #
+# Last update : 23.08.2026                                                   #
+# Version     : 1.24                                                         #
 #                                                                            #
 # Author      : Klaus Tachtler, <klaus@tachtler.net>                         #
 # DokuWiki    : http://www.dokuwiki.tachtler.net                             #
@@ -75,7 +75,7 @@
 # -------------------------------------------------------------------------- #
 # Version     : 1.08                                                         #
 # Description : GitHub Issue #9                                              #
-#               Add ability to only backup specific mailboxes, by using the  # 
+#               Add ability to only backup specific mailboxes, by using the  #
 #               variable FILE_USERLIST with the file path and file name as   #
 #               content. The file must contain one e-mail address per line.  #
 #               Add the calculation of the script runtime.                   #
@@ -168,6 +168,11 @@
 # Version     : 1.23                                                         #
 # Description : Optimize code with ShellCheck and AI.                        #
 # -------------------------------------------------------------------------- #
+# Version     : 1.24                                                         #
+# Description : Github: Issue #30                                            #
+#               COMPRESSION='zst' still creates gzip archives.               #
+#               Thanks to Matthias Hille.                                    #
+# -------------------------------------------------------------------------- #
 # Version     : x.xx                                                         #
 # Description : <Description>                                                #
 # -------------------------------------------------------------------------- #
@@ -181,7 +186,7 @@
 SCRIPT_NAME='dovecot_backup'
  
 # CUSTOM - Backup-Files compression method - (possible values: gz zst).
-COMPRESSION='gz'
+COMPRESSION='zst'
  
 # CUSTOM - Backup-Files.
 TMP_FOLDER='/srv/backup'
@@ -240,6 +245,7 @@ STAT_COMMAND=$(command -v stat)
 TAR_COMMAND=$(command -v tar)
 TOUCH_COMMAND=$(command -v touch)
 ZSTD_COMMAND=$(command -v zstd)
+DSYNC_COMMAND=$(command -v doveadm)
 FILE_LAST_LOG='/tmp/'$SCRIPT_NAME'.log'
 FILE_LOCK='/tmp/'$SCRIPT_NAME'.lock'
 FILE_LOG='/var/log/'$SCRIPT_NAME'.log'
@@ -261,7 +267,6 @@ esac
  
 # FreeBSD and OpenBSD specific commands.
 if $VAR_IS_BSD; then
-    DSYNC_COMMAND=$(command -v doveadm)
     STAT_COMMAND_PARAM_FORMAT='-f'
     STAT_COMMAND_ARG_FORMAT_USER='%Su'
     STAT_COMMAND_ARG_FORMAT_GROUP='%Sg'
@@ -269,7 +274,6 @@ if $VAR_IS_BSD; then
         -d "${TMP_FOLDER}/${SCRIPT_NAME}-XXXXXXXXXXXX"
         )
 else
-    DSYNC_COMMAND=$(command -v doveadm)
     STAT_COMMAND_PARAM_FORMAT='-c'
     STAT_COMMAND_ARG_FORMAT_USER='%U'
     STAT_COMMAND_ARG_FORMAT_GROUP='%G'
@@ -279,7 +283,7 @@ else
         -t "${SCRIPT_NAME}-XXXXXXXXXXXX"
         )
 fi
- 
+
 # Functions.
 function cleanup() {
     $RM_COMMAND -f "$FILE_LOCK"
@@ -454,10 +458,12 @@ checkcommand "$TOUCH_COMMAND"
  
 if [[ $COMPRESSION = 'gz' ]]; then
     checkcommand "$GZIP_COMMAND"
+    COMPRESSION_PARAM=(-czvf)
 fi
  
 if [[ $COMPRESSION = 'zst' ]]; then
     checkcommand "$ZSTD_COMMAND"
+    COMPRESSION_PARAM=(-I 'zstd' -cvf)
 fi
  
 # Check if LOCK file NOT exist.
@@ -672,9 +678,9 @@ for users in "${VAR_LISTED_USER[@]}"; do
  
         log "Packaging to archive for user: $users ..."
         if $VAR_IS_BSD; then
-            $TAR_COMMAND -cvzf "$users"-"$FILE_BACKUP" "$USERPART"
+            $TAR_COMMAND "${COMPRESSION_PARAM[@]}" "$users"-"$FILE_BACKUP" "$USERPART"
         else
-            $TAR_COMMAND -cvzf "$users"-"$FILE_BACKUP" "$USERPART" --atime-preserve --preserve-permissions
+            $TAR_COMMAND "${COMPRESSION_PARAM[@]}" "$users"-"$FILE_BACKUP" "$USERPART" --atime-preserve --preserve-permissions
         fi
  
         log "Delete mailbox files for user: $users ..."
